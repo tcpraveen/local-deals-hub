@@ -1,5 +1,6 @@
 import streamlit as st
 import sqlite3
+from datetime import datetime, time
 
 st.set_page_config(page_title="Local Deals Hub", page_icon="🛍️", layout="wide")
 
@@ -7,22 +8,24 @@ st.set_page_config(page_title="Local Deals Hub", page_icon="🛍️", layout="wi
 conn = sqlite3.connect("deals.db", check_same_thread=False)
 cursor = conn.cursor()
 
+# Upgraded database table to store the secret PIN and the specific closing time
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS offers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     shop TEXT,
     category TEXT,
     offer TEXT,
-    location TEXT
+    location TEXT,
+    end_time TEXT,
+    pin TEXT
 )
 """)
 conn.commit()
 
-# Pull offers including their unique database ID
 def get_all_offers():
-    cursor.execute("SELECT id, shop, category, offer, location FROM offers ORDER BY id DESC")
+    cursor.execute("SELECT id, shop, category, offer, location, end_time, pin FROM offers ORDER BY id DESC")
     rows = cursor.fetchall()
-    return [{"id": row[0], "shop": row[1], "category": row[2], "offer": row[3], "location": row[4]} for row in rows]
+    return [{"id": row[0], "shop": row[1], "category": row[2], "offer": row[3], "location": row[4], "end_time": row[5], "pin": row[6]} for row in rows]
 
 def get_total_deals_count():
     cursor.execute("SELECT COUNT(*) FROM offers")
@@ -32,7 +35,6 @@ def get_unique_shops_count():
     cursor.execute("SELECT COUNT(DISTINCT shop) FROM offers")
     return cursor.fetchone()[0]
 
-# DATABASE DELETE FUNCTION
 def delete_offer(offer_id):
     cursor.execute("DELETE FROM offers WHERE id = ?", (offer_id,))
     conn.commit()
@@ -41,16 +43,16 @@ def delete_offer(offer_id):
 cursor.execute("SELECT COUNT(*) FROM offers")
 if cursor.fetchone()[0] == 0:
     starter_deals = [
-        ("Sai Mobile Zone", "Gadgets & Phones", "Flat 10% OFF on all smartphone accessories!", "Main Bazaar"),
-        ("Style Trendz Boutique", "Clothing & Fashion", "Buy 1 Get 1 Free on summer t-shirts!", "College Road"),
-        ("Fresh Mart", "Groceries", "Free delivery + 5% discount on bills above ₹500", "Station Road")
+        ("Sai Mobile Zone", "Gadgets & Phones", "Flat 10% OFF on all smartphone accessories!", "Main Bazaar", "22:00", "0000"),
+        ("Fresh Mart Grocery", "Groceries", "100 Packets of Premium Biscuits at 50% OFF!", "Station Road", "21:00", "0000"),
+        ("Style Trendz Boutique", "Clothing & Fashion", "Buy 1 Get 1 Free on summer t-shirts!", "College Road", "23:00", "0000")
     ]
-    cursor.executemany("INSERT INTO offers (shop, category, offer, location) VALUES (?, ?, ?, ?)", starter_deals)
+    cursor.executemany("INSERT INTO offers (shop, category, offer, location, end_time, pin) VALUES (?, ?, ?, ?, ?, ?)", starter_deals)
     conn.commit()
 
 # --- APP INTERFACE ---
 st.title("🛍️ Neighborhood Deals Hub")
-st.subheader("Skip the expensive social media ads. See real-time offers from local shops nearby!")
+st.subheader("Grab massive daily discounts and save local shops from stock surplus losses!")
 
 # Founder Insights Dashboard
 st.markdown("### 📊 Business Overview (Founder Insights)")
@@ -61,31 +63,38 @@ with col2:
     st.metric(label="🔥 Total Live Offers Running", value=get_total_deals_count())
 st.markdown("---")
 
-# Create Sidebar for Shop Owners to post discounts
+# Sidebar for Shop Owners
 with st.sidebar:
     st.header("📢 Shop Owner Portal")
-    st.write("Post your discount here instantly to reach all local customers for free!")
+    st.write("Clear your surplus stock instantly to nearby bargain hunters!")
     
     new_shop = st.text_input("Shop Name:")
-    new_cat = st.selectbox("Shop Category:", ["Gadgets & Phones", "Clothing & Fashion", "Groceries", "Cafes & Food", "Other"])
+    new_cat = st.selectbox("Shop Category:", ["Groceries", "Gadgets & Phones", "Clothing & Fashion", "Cafes & Food", "Other"])
     new_location = st.text_input("Area / Street Name:")
-    new_offer = st.text_area("Describe your Discount Offer:")
+    new_offer = st.text_area("Describe your Discount Offer (e.g., 50% off biscuits):")
+    
+    # NEW FEATURE: Select a specific flash sale end time
+    new_time = st.time_input("What time does this flash sale end tonight?", time(21, 00))
+    formatted_time = new_time.strftime("%I:%M %p")
+    
+    # NEW FEATURE: Security PIN setup
+    new_pin = st.text_input("Set a secret 4-digit PIN (to delete this deal later):", type="password", max_chars=4)
     
     if st.button("Publish Offer Live"):
-        if new_shop and new_offer and new_location:
+        if new_shop and new_offer and new_location and new_pin:
             cursor.execute(
-                "INSERT INTO offers (shop, category, offer, location) VALUES (?, ?, ?, ?)",
-                (new_shop, new_cat, new_offer, new_location)
+                "INSERT INTO offers (shop, category, offer, location, end_time, pin) VALUES (?, ?, ?, ?, ?, ?)",
+                (new_shop, new_cat, new_offer, new_location, formatted_time, new_pin)
             )
             conn.commit()
-            st.success(f"🎉 Success! '{new_shop}' offer is now saved permanently!")
+            st.success(f"🎉 Live! Flash deal uploaded successfully!")
             st.rerun()
         else:
-            st.error("Please fill out all fields to publish.")
+            st.error("Please fill out all fields and set a secret PIN.")
 
 # Main Dashboard for Local Residents
 st.header("🔥 Active Local Discounts")
-search_query = st.text_input("🔍 Search for a shop, category, or area:")
+search_query = st.text_input("🔍 Search for a shop, category, stock item, or area:")
 
 live_offers = get_all_offers()
 
@@ -94,25 +103,31 @@ filtered_offers = [
     if search_query.lower() in o["shop"].lower() 
     or search_query.lower() in o["category"].lower()
     or search_query.lower() in o["location"].lower()
+    or search_query.lower() in o["offer"].lower()
 ]
 
 if filtered_offers:
     for item in filtered_offers:
         with st.container():
-            text_col, btn_col = st.columns([5, 1])
+            text_col, action_col = st.columns([4, 2])
             
             with text_col:
                 st.markdown(f"### 🏪 {item['shop']} — *{item['category']}*")
-                st.info(f"💰 **OFFER:** {item['offer']}")
-                st.caption(f"📍 Location: {item['location']}")
+                st.info(f"💰 **DEAL:** {item['offer']}")
+                st.warning(f"⏳ **⚡ FLASH DEAL CLOSES AT:** {item['end_time']} | 📍 **Location:** {item['location']}")
             
-            with btn_col:
+            with action_col:
                 st.write("") 
-                st.write("") 
-                if st.button("🗑️ Remove", key=f"del_{item['id']}"):
-                    delete_offer(item['id'])
-                    st.toast(f"Removed deal from {item['shop']}!")
-                    st.rerun()
+                # Secure Deletion block
+                input_pin = st.text_input("Enter Shop PIN to remove:", type="password", max_chars=4, key=f"pin_input_{item['id']}")
+                if st.button("🗑️ Confirm Removal", key=f"del_{item['id']}"):
+                    if input_pin == item['pin']:
+                        delete_offer(item['id'])
+                        st.toast("Deal successfully verified and removed!")
+                        st.rerun()
+                    else:
+                        st.error("⚠️ Incorrect PIN! Only the owner who posted this can remove it.")
             st.markdown("---")
 else:
-    st.warning("No active discounts match your search. Try checking another category!")
+    st.warning("No active flash deals match your search.")
+    
