@@ -131,7 +131,7 @@ elif "👗 Fashion" in selected_tab:
 elif "🍔 Bakeries" in selected_tab:
     render_flipkart_feed("Cafes & Food")
 
-# --- MERCHANT SECURITY CENTRE ---
+st.markdown(f"<h2 style='color:#ffffff; font-family:sans-serif; margin-top:0px; margin-bottom:6px;'>{item['offer']}</h2>", unsafe_allow_html=True)
 elif "🔐 Merchant" in selected_tab:
     st.header("🔐 Store Manager Verification Center")
     st.write("Authenticate credentials to audit customer orders or shut down listings.")
