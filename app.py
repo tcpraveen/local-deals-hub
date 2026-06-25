@@ -12,6 +12,7 @@ st.set_page_config(
 )
 
 # --- PERMANENT SUPABASE DATABASE INITIALIZATION ---
+db_link = "postgresql://postgres:Tcpraveen%402008@db.jjecrbcacxaxzzpgvwbx.supabase.co:5432/postgres"
 try:
     db_link = st.secrets["db_url"]
 except Exception:
