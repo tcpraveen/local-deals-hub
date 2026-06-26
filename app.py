@@ -11,7 +11,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- PERMANENT SUPABASE DATABASE INITIALIZATION ---
+import os
+
+# Try reading from Render first, fall back to Streamlit secrets if not found
+db_link = os.getenv("db_url") or st.secrets.get("db_url")
+
+if not db_link:
+    st.error("🔑 Database Secret Missing! Please configure 'db_url' environment variable.")
+    st.stop()
 db_link = "postgresql://postgres:Tcpraveen%402008@db.jjecrbcacxaxzzpgvwbx.supabase.co:5432/postgres"
 try:
     db_link = st.secrets["db_url"]
