@@ -12,7 +12,9 @@ st.set_page_config(
 )
 
 # --- DIRECT DATABASE CONFIGURATION FOR RENDER ---
-db_link = os.getenv("db_url")
+db_url_raw = os.getenv("db_url")
+# This line automatically deletes any accidental hidden spaces or line breaks
+db_link = db_url_raw.strip() if db_url_raw else None
 
 if not db_link:
     st.error("🔑 Database Secret Missing! Please configure 'db_url' environment variable inside your Render dashboard.")
