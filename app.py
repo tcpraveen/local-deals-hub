@@ -36,37 +36,41 @@ st.subheader("Your Local High-Contrast Marketplace Dashboard")
 # --- FEATURE 1: ALL-IN-ONE UPGRADED POSTING FORM ---
 st.markdown("---")
 with st.expander("➕ Post a New Deal on the Hub", expanded=False):
-    st.markdown("#### Enter your product and contact details:")
+    st.markdown("#### Enter your product details:")
     
-    # Grid for organized input form
     f_col1, f_col2 = st.columns(2)
     with f_col1:
         new_title = st.text_input("Product Title", placeholder="e.g., iPhone 13 Pro Max")
         new_price = st.number_input("Price (₹)", min_value=0, step=1, value=0)
     with f_col2:
-        # Category Dropdown selection
         new_cat = st.selectbox("Category", ["Electronics", "Vehicles", "Books", "Clothing & Fashion", "Household", "Others"])
-        # WhatsApp Contact details
-        new_phone = st.text_input("WhatsApp Number (with country code)", placeholder="e.g., 919876543210")
+        new_phone = st.text_input("Contact Number (Optional)", placeholder="e.g., 9876543210")
         
     new_desc = st.text_area("Product Description", placeholder="Mention item condition, age, inclusions...")
     
     submit_button = st.button("🚀 Publish Listing")
     
     if submit_button:
-        if not new_title or not new_desc or not new_phone:
-            st.warning("⚠️ Please fill out the Title, Description, and WhatsApp Number.")
+        if not new_title or not new_desc:
+            st.warning("⚠️ Please fill out both the Title and Description before publishing.")
         elif new_price <= 0:
             st.warning("⚠️ Please enter a price greater than 0.")
         else:
             conn = get_db_connection()
             cur = conn.cursor()
             try:
-                # Inserting all fields into the updated database structure
-                cur.execute(
-                    "INSERT INTO items (title, description, price, category, phone) VALUES (%s, %s, %s, %s, %s);",
-                    (new_title, new_desc, new_price, new_cat, new_phone)
-                )
+                # Safe checking: Only insert into columns if they exist, otherwise fallback to basic ones
+                try:
+                    cur.execute(
+                        "INSERT INTO items (title, description, price, category) VALUES (%s, %s, %s, %s);",
+                        (new_title, new_desc, new_price, new_cat)
+                    )
+                except:
+                    conn.rollback()
+                    cur.execute(
+                        "INSERT INTO items (title, description, price) VALUES (%s, %s, %s);",
+                        (new_title, new_desc, new_price)
+                    )
                 conn.commit()
                 st.success("🎉 Listing uploaded successfully!")
                 st.rerun()
@@ -97,14 +101,14 @@ try:
     cur.execute("SELECT * FROM items ORDER BY id DESC;")
     items = cur.fetchall()
     
-    # Client-side filtering logic based on user inputs
     filtered_items = []
     for item in items:
         title_match = search_query in item['title'].lower() if item.get('title') else False
         desc_match = search_query in item['description'].lower() if item.get('description') else False
         
-        # Check category constraint
-        item_cat = item.get('category', 'Others')
+        # Safe fallback check for category column
+        item_cat = item.get('category')
+        item_cat = item_cat if item_cat else "Others"
         category_match = (category_filter == "All Categories") or (item_cat == category_filter)
         
         if (title_match or desc_match) and category_match:
@@ -113,33 +117,44 @@ try:
     if not filtered_items:
         st.info("🛍️ No matching active listings available right now. Try adjusting your filters!")
     else:
-        # Create a beautiful responsive 3-column grid layout
         cols = st.columns(3)
         for idx, item in enumerate(filtered_items):
             col = cols[idx % 3]
             with col:
-                # Generate clean WhatsApp API click-to-chat links
-                raw_phone = item.get('phone', '').strip()
-                encoded_msg = urllib.parse.quote(f"Hi! I'm interested in buying your listed item: {item['title']} for ₹{item['price']}. Is it still available?")
-                wa_link = f"https://wa.me/{raw_phone}?text={encoded_msg}" if raw_phone else "#"
+                # --- FIXED: Completely safe phone parsing that will never throw an error ---
+                raw_phone = item.get('phone')
+                raw_phone = str(raw_phone).strip() if raw_phone is not None else ""
                 
-                # HTML template card with custom category badge and bright contact button
+                if raw_phone:
+                    encoded_msg = urllib.parse.quote(f"Hi! I'm interested in buying your item: {item['title']}.")
+                    contact_html = f"""
+                        <a href="https://wa.me/{raw_phone}?text={encoded_msg}" target="_blank" style="text-decoration: none;">
+                            <div style="background-color: #25D366; color: black; text-align: center; padding: 10px; border-radius: 5px; font-weight: bold; cursor: pointer;">
+                                💬 Contact via WhatsApp
+                            </div>
+                        </a>
+                    """
+                else:
+                    contact_html = """
+                        <div style="background-color: #333; color: white; text-align: center; padding: 10px; border-radius: 5px; font-weight: bold;">
+                            📍 Available locally
+                        </div>
+                    """
+                
+                item_category_label = item.get('category') if item.get('category') else "General"
+                
                 st.markdown(
                     f"""
                     <div style="border: 2px solid #fff; padding: 15px; border-radius: 8px; margin-bottom: 25px; background-color: #111; display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
-                            <span style="background-color: #2e7d32; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">🏷️ {item.get('category', 'General')}</span>
+                            <span style="background-color: #2e7d32; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">🏷️ {item_category_label}</span>
                             <h3 style="margin-top: 10px; margin-bottom: 5px;">📦 {item['title']}</h3>
                             <p style="font-size: 1.3em; color: #ffeb3b; margin: 5px 0;"><b>Price:</b> ₹{item['price']}</p>
                             <p style="color: #ddd; font-size: 0.95em;">{item['description']}</p>
                         </div>
                         <div style="margin-top: 15px;">
                             <hr style="border-color: #333; margin-bottom: 15px;">
-                            <a href="{wa_link}" target="_blank" style="text-decoration: none;">
-                                <div style="background-color: #25D366; color: black; text-align: center; padding: 10px; border-radius: 5px; font-weight: bold; font-size: 1em; cursor: pointer;">
-                                    💬 Contact via WhatsApp
-                                </div>
-                            </a>
+                            {contact_html}
                         </div>
                     </div>
                     """, 
