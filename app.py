@@ -12,13 +12,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom styling adjustments
-st.markdown("""
-    <style>
-    .block-container { padding-top: 1.5rem; }
-    div[data-testid="stExpander"] { border: 1px solid #333; border-radius: 8px; background-color: #0e1117; }
-    </style>
-""", unsafe_allow_html=True)
+# DEFAULT AUTH PASSWORD
+SHOPKEEPER_PASSWORD = "shop123"
 
 # --- DIRECT DATABASE CONFIGURATION FOR RENDER ---
 db_url_raw = os.getenv("db_url")
@@ -37,11 +32,7 @@ def get_db_connection():
         st.error(f"❌ Server Connection Error: {e}")
         st.stop()
 
-# --- APPLICATION INTERFACE ---
-st.title("⚡ Neighborhood Deals Hub")
-st.caption("Your Local High-Contrast Marketplace Dashboard")
-
-# --- FETCH DATA FIRST FOR METRICS ---
+# --- FETCH ALL DATA ---
 conn = get_db_connection()
 cur = conn.cursor()
 items = []
@@ -49,10 +40,14 @@ try:
     cur.execute("SELECT * FROM items ORDER BY id DESC;")
     items = cur.fetchall()
 except Exception as e:
-    st.error(f"⚠️ Error reading initial database: {e}")
+    st.error(f"⚠️ Error reading database: {e}")
 finally:
     cur.close()
     conn.close()
+
+# --- APPLICATION INTERFACE ---
+st.title("⚡ Neighborhood Deals Hub")
+st.caption("Your Local High-Contrast Marketplace Dashboard")
 
 # --- PROTOTYPE FEATURE: LIVE BUSINESS METRICS BAR ---
 st.markdown("### 📊 Hub Statistics")
@@ -69,32 +64,43 @@ with m_col3:
 
 st.markdown("---")
 
-# --- EXPANDABLE POSTING FORM ---
-with st.expander("➕ Post a New Deal on the Hub", expanded=False):
+# --- PASSWORD PROTECTED POSTING FORM ---
+with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
     st.markdown("### 📝 Enter Product Details")
+    
+    form_password = st.text_input("🔑 Enter Shopkeeper Password to Post", type="password")
+    
     f_col1, f_col2 = st.columns(2)
     with f_col1:
         new_title = st.text_input("Product Title", placeholder="e.g., iPhone 13 Pro Max")
         new_price = st.number_input("Price (₹)", min_value=0, step=100, value=0)
     with f_col2:
         new_cat = st.selectbox("Category", ["Electronics", "Vehicles", "Books", "Clothing & Fashion", "Household", "Others"])
-        new_phone = st.text_input("WhatsApp Number (Optional)", placeholder="e.g., 919876543210")
+        new_phone = st.text_input("WhatsApp Number", placeholder="e.g., 919876543210")
         
     new_desc = st.text_area("Product Description", placeholder="Mention item condition, age, inclusions...")
     
-    # PROTOTYPE FEATURE: PREMIUM SELLER MARKER
-    st.markdown("##### 🌟 Promotion Options")
-    is_premium = st.checkbox("Mark as ⭐ URGENT / FEATURED deal (Highlights your listing)")
+    # NEW PAYMENT PROTOTYPE OPTION: Custom Payment link input field
+    st.markdown("##### 💳 E-Commerce Integrations")
+    custom_pay_url = st.text_input("🔗 Razorpay/Stripe Payment Link (Optional)", placeholder="e.g., https://rzp.io/l/your_product_link")
+    
+    is_premium = st.checkbox("Mark as ⭐ URGENT / FEATURED deal")
     
     if st.button("🚀 Publish Listing", use_container_width=True):
-        if not new_title or not new_desc:
+        if form_password != SHOPKEEPER_PASSWORD:
+            st.error("❌ Incorrect Shopkeeper Password! Access Denied.")
+        elif not new_title or not new_desc:
             st.warning("⚠️ Please fill out both the Title and Description.")
         elif new_price <= 0:
             st.warning("⚠️ Please enter a valid price.")
         else:
-            # We add the prefix [URGENT] to the description dynamically if checked so it requires no DB modifications!
-            final_desc = f"🚨 [URGENT DEAL] {new_desc}" if is_premium else new_desc
-            
+            # We inject both the urgent tag and the payment url into description cleanly to fit existing database structure
+            final_desc = new_desc
+            if is_premium:
+                final_desc = f"🚨 [URGENT DEAL] {final_desc}"
+            if custom_pay_url:
+                final_desc = f"{final_desc} |PAY_URL:{custom_pay_url.strip()}|"
+                
             conn = get_db_connection()
             cur = conn.cursor()
             try:
@@ -119,18 +125,19 @@ with st.expander("➕ Post a New Deal on the Hub", expanded=False):
                 conn.close()
 
 # --- SEARCH & FILTER SYSTEM ---
+st.markdown("---")
 st.markdown("### 🔍 Search & Filter Deals")
 search_col, filter_col = st.columns([2, 1])
 
 with search_col:
-    search_query = st.text_input("Search listings...", placeholder="Type keywords here (e.g., MacBook, Poco)...").strip().lower()
+    search_query = st.text_input("Search listings...", placeholder="Type keywords here...").strip().lower()
 
 with filter_col:
     category_filter = st.selectbox("Filter by Category", ["All Categories", "Electronics", "Vehicles", "Books", "Clothing & Fashion", "Household", "Others"])
 
 st.markdown("### 🛍️ Available Active Listings")
 
-# --- RENDER LOGIC WITH PREMIUM UI BORDERS ---
+# --- RENDER LOGIC ---
 filtered_items = []
 for item in items:
     title_match = search_query in item['title'].lower() if item.get('title') else False
@@ -143,36 +150,76 @@ for item in items:
         filtered_items.append(item)
 
 if not filtered_items:
-    st.info("🛍️ No matching listings found. Try adjusting your filters!")
+    st.info("🛍️ No matching listings found.")
 else:
     cols = st.columns(3)
     for idx, item in enumerate(filtered_items):
         col = cols[idx % 3]
         with col:
-            # Check if this was marked as an urgent item
-            is_urgent = "[URGENT DEAL]" in item['description']
-            clean_desc = item['description'].replace("🚨 [URGENT DEAL] ", "")
+            raw_desc = item['description']
+            is_urgent = "[URGENT DEAL]" in raw_desc
             
-            # Use Streamlit containers with dynamic custom colors for premium items
+            # Extract payment link from description parsing safely
+            pay_url = ""
+            if "|PAY_URL:" in raw_desc:
+                parts = raw_desc.split("|PAY_URL:")
+                clean_desc = parts[0].replace("🚨 [URGENT DEAL] ", "")
+                pay_url = parts[1].replace("|", "").strip()
+            else:
+                clean_desc = raw_desc.replace("🚨 [URGENT DEAL] ", "")
+            
             with st.container(border=True):
                 item_cat = item.get('category') if item.get('category') else "General"
-                
-                # Render Tag Bar
                 if is_urgent:
                     st.markdown("🔥 **URGENT LISTING**")
                 st.caption(f"🏷️ {item_cat}")
-                
-                # Title & Price
                 st.markdown(f"### {item['title']}")
                 st.markdown(f"#### **Price:** ₹{item['price']}")
                 st.write(clean_desc)
-                
                 st.markdown("---")
                 
-                # Communication actions
+                # Payment Button logic vs traditional Contact logic
+                if pay_url:
+                    st.link_button("💳 Instant Booking / Pay Now", pay_url, use_container_width=True, type="primary")
+                
                 raw_phone = item.get('phone')
                 if raw_phone and str(raw_phone).strip() and str(raw_phone) != "None":
-                    encoded_msg = urllib.parse.quote(f"Hi, I am interested in buying your '{item['title']}' listed on the Deals Hub!")
+                    encoded_msg = urllib.parse.quote(f"Hi, I am interested in buying your '{item['title']}'!")
                     st.link_button("💬 Chat on WhatsApp", f"https://wa.me/{str(raw_phone).strip()}?text={encoded_msg}", use_container_width=True)
-                else:
+                elif not pay_url:
                     st.button("📍 Available Locally", disabled=True, use_container_width=True)
+
+# --- PASSWORD PROTECTED DELETE SYSTEM ---
+st.markdown("---")
+with st.expander("🗑️ Shopkeeper Menu: Remove Listings", expanded=False):
+    st.markdown("### 🔐 Inventory Controls")
+    delete_password = st.text_input("🔑 Enter Shopkeeper Password to Enable Deletion", type="password")
+    
+    if delete_password == SHOPKEEPER_PASSWORD:
+        if not items:
+            st.info("No items in inventory to delete.")
+        else:
+            st.warning("Clicking a red delete button below will remove the product permanently from the app.")
+            for row in items:
+                del_col1, del_col2 = st.columns([4, 1])
+                with del_col1:
+                    # Strip parsing for view utility
+                    display_desc = row['description'].split("|PAY_URL:")[0]
+                    st.write(f"📦 **{row['title']}** — ₹{row['price']} (ID: {row['id']})")
+                with del_col2:
+                    if st.button(f"🗑️ Delete", key=f"del_{row['id']}", type="primary", use_container_width=True):
+                        conn = get_db_connection()
+                        cur = conn.cursor()
+                        try:
+                            cur.execute("DELETE FROM items WHERE id = %s;", (row['id'],))
+                            conn.commit()
+                            st.success(f"Removed listing successfully!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error executing deletion: {e}")
+                        finally:
+                            cur.close()
+                            conn.close()
+    elif delete_password != "":
+        st.error("❌ Incorrect Password!")
+        
