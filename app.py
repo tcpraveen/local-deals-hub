@@ -70,8 +70,6 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
     st.markdown("### 📝 Enter Product Details")
     
     form_password = st.text_input("🔑 Enter Shopkeeper Password to Post", type="password")
-    
-    # TRUST UPGRADE: Verification Key Field
     vendor_key = st.text_input("⭐ Enter Trusted Vendor Verification Key (Optional - Leaves Badge)", type="password", placeholder="Leave blank if unverified local seller")
     
     f_col1, f_col2 = st.columns(2)
@@ -103,7 +101,6 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
             if custom_pay_url:
                 final_desc = f"{final_desc} |PAY_URL:{custom_pay_url.strip()}|"
             
-            # Embed verification state into the category string to preserve database structure compatibility
             final_cat = f"{new_cat} |VERIFIED|" if vendor_key == TRUSTED_VENDOR_KEY else new_cat
                 
             conn = get_db_connection()
@@ -148,8 +145,8 @@ for item in items:
     title_match = search_query in item['title'].lower() if item.get('title') else False
     desc_match = search_query in item['description'].lower() if item.get('description') else False
     
-    raw_cat = item.get('category') if item.get('category') else "Others"
-    clean_cat = raw_cat.split(" |VERIFIED|")[0]
+    raw_cat = item.get('category')
+    clean_cat = str(raw_cat).split(" |VERIFIED|")[0] if raw_cat else "Others"
     category_match = (category_filter == "All Categories") or (clean_cat == category_filter)
     
     if (title_match or desc_match) and category_match:
@@ -162,7 +159,7 @@ else:
     for idx, item in enumerate(filtered_items):
         col = cols[idx % 3]
         with col:
-            raw_desc = item['description']
+            raw_desc = item['description'] if item.get('description') else ""
             is_urgent = "[URGENT DEAL]" in raw_desc
             
             pay_url = ""
@@ -173,13 +170,13 @@ else:
             else:
                 clean_desc = raw_desc.replace("🚨 [URGENT DEAL] ", "")
             
-            # Check verification tag status
-            raw_cat = item.get('category', 'General')
-            is_verified = " |VERIFIED|" in raw_cat
-            display_cat = raw_cat.replace(" |VERIFIED|", "")
+            # FIXED SAFE HANDLING FOR NULL CATEGORIES
+            raw_cat = item.get('category')
+            raw_cat_str = str(raw_cat) if raw_cat is not None else "General"
+            is_verified = " |VERIFIED|" in raw_cat_str
+            display_cat = raw_cat_str.replace(" |VERIFIED|", "")
             
             with st.container(border=True):
-                # UI Layout for Trust Badges
                 t_col1, t_col2 = st.columns([1, 1])
                 with t_col1:
                     st.caption(f"🏷️ {display_cat}")
@@ -195,7 +192,6 @@ else:
                 st.markdown(f"#### **Price:** ₹{item['price']}")
                 st.write(clean_desc)
                 
-                # Trust Feature: Easy customer warning/report link
                 report_msg = urllib.parse.quote(f"REPORT: Listing ID {item['id']} ({item['title']}) is suspected of fraud/damage. Please review.")
                 st.markdown(f"<a href='https://wa.me/919876543210?text={report_msg}' style='color: #ff4b4b; font-size: 0.85em; text-decoration: none;'>⚠️ Report Damaged/Fake Item</a>", unsafe_allow_html=True)
                 st.markdown("---")
