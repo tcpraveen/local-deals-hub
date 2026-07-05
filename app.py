@@ -80,7 +80,6 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
         
     new_desc = st.text_area("Product Description", placeholder="Mention item condition, age, inclusions...")
     
-    # NEW PAYMENT PROTOTYPE OPTION: Custom Payment link input field
     st.markdown("##### 💳 E-Commerce Integrations")
     custom_pay_url = st.text_input("🔗 Razorpay/Stripe Payment Link (Optional)", placeholder="e.g., https://rzp.io/l/your_product_link")
     
@@ -94,7 +93,6 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
         elif new_price <= 0:
             st.warning("⚠️ Please enter a valid price.")
         else:
-            # We inject both the urgent tag and the payment url into description cleanly to fit existing database structure
             final_desc = new_desc
             if is_premium:
                 final_desc = f"🚨 [URGENT DEAL] {final_desc}"
@@ -159,7 +157,6 @@ else:
             raw_desc = item['description']
             is_urgent = "[URGENT DEAL]" in raw_desc
             
-            # Extract payment link from description parsing safely
             pay_url = ""
             if "|PAY_URL:" in raw_desc:
                 parts = raw_desc.split("|PAY_URL:")
@@ -178,16 +175,16 @@ else:
                 st.write(clean_desc)
                 st.markdown("---")
                 
-                # Payment Button logic vs traditional Contact logic
+                # --- FIXED: Added unique key strings to avoid element conflicts ---
                 if pay_url:
-                    st.link_button("💳 Instant Booking / Pay Now", pay_url, use_container_width=True, type="primary")
+                    st.link_button("💳 Instant Booking / Pay Now", pay_url, use_container_width=True, type="primary", key=f"pay_btn_{item['id']}")
                 
                 raw_phone = item.get('phone')
                 if raw_phone and str(raw_phone).strip() and str(raw_phone) != "None":
                     encoded_msg = urllib.parse.quote(f"Hi, I am interested in buying your '{item['title']}'!")
-                    st.link_button("💬 Chat on WhatsApp", f"https://wa.me/{str(raw_phone).strip()}?text={encoded_msg}", use_container_width=True)
+                    st.link_button("💬 Chat on WhatsApp", f"https://wa.me/{str(raw_phone).strip()}?text={encoded_msg}", use_container_width=True, key=f"wa_btn_{item['id']}")
                 elif not pay_url:
-                    st.button("📍 Available Locally", disabled=True, use_container_width=True)
+                    st.button("📍 Available Locally", disabled=True, use_container_width=True, key=f"local_btn_{item['id']}")
 
 # --- PASSWORD PROTECTED DELETE SYSTEM ---
 st.markdown("---")
@@ -203,8 +200,6 @@ with st.expander("🗑️ Shopkeeper Menu: Remove Listings", expanded=False):
             for row in items:
                 del_col1, del_col2 = st.columns([4, 1])
                 with del_col1:
-                    # Strip parsing for view utility
-                    display_desc = row['description'].split("|PAY_URL:")[0]
                     st.write(f"📦 **{row['title']}** — ₹{row['price']} (ID: {row['id']})")
                 with del_col2:
                     if st.button(f"🗑️ Delete", key=f"del_{row['id']}", type="primary", use_container_width=True):
@@ -222,4 +217,3 @@ with st.expander("🗑️ Shopkeeper Menu: Remove Listings", expanded=False):
                             conn.close()
     elif delete_password != "":
         st.error("❌ Incorrect Password!")
-        
