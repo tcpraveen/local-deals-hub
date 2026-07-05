@@ -14,7 +14,7 @@ st.set_page_config(
 
 # FIXED AUTH PASSWORDS FOR SECURITY
 SHOPKEEPER_PASSWORD = "shop123"
-TRUSTED_VENDOR_KEY = "trust789" # Secret key for verified shopkeepers
+TRUSTED_VENDOR_KEY = "trust789"
 
 # --- DIRECT DATABASE CONFIGURATION FOR RENDER ---
 db_url_raw = os.getenv("db_url")
@@ -53,6 +53,7 @@ st.caption("Your Local High-Contrast Trusted Marketplace Dashboard")
 # --- PROTOTYPE FEATURE: LIVE BUSINESS METRICS BAR ---
 st.markdown("### 📊 Hub Statistics")
 total_items = len(items)
+max_item_price = max([float(item['price']) for item in items if item.get('price')], default=100000.0)
 total_value = sum(float(item['price']) for item in items if item.get('price'))
 
 m_col1, m_col2, m_col3 = st.columns(3)
@@ -65,12 +66,12 @@ with m_col3:
 
 st.markdown("---")
 
-# --- PASSWORD PROTECTED POSTING FORM ---
+# --- EXPANDED POSTING FORM WITH PHOTO INTEGRATION ---
 with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
     st.markdown("### 📝 Enter Product Details")
     
     form_password = st.text_input("🔑 Enter Shopkeeper Password to Post", type="password")
-    vendor_key = st.text_input("⭐ Enter Trusted Vendor Verification Key (Optional - Leaves Badge)", type="password", placeholder="Leave blank if unverified local seller")
+    vendor_key = st.text_input("⭐ Enter Trusted Vendor Verification Key (Optional)", type="password")
     
     f_col1, f_col2 = st.columns(2)
     with f_col1:
@@ -82,8 +83,10 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
         
     new_desc = st.text_area("Product Description", placeholder="Mention item condition, age, inclusions...")
     
-    st.markdown("##### 💳 E-Commerce Integrations")
-    custom_pay_url = st.text_input("🔗 Secure Escrow / Booking Link (Optional)", placeholder="e.g., https://rzp.io/l/your_product_link")
+    # NEW UPGRADE: Photo link input field
+    st.markdown("##### 🖼️ Visuals & E-Commerce")
+    new_photo = st.text_input("🔗 Product Image URL (Optional)", placeholder="Paste an image link from web (e.g., https://images.unsplash.com/...)")
+    custom_pay_url = st.text_input("🔗 Secure Booking Link (Optional)", placeholder="e.g., https://rzp.io/l/...")
     
     is_premium = st.checkbox("Mark as ⭐ URGENT / FEATURED deal")
     
@@ -100,6 +103,9 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
                 final_desc = f"🚨 [URGENT DEAL] {final_desc}"
             if custom_pay_url:
                 final_desc = f"{final_desc} |PAY_URL:{custom_pay_url.strip()}|"
+            # Embed image URL cleanly inside description to ensure database compatibility
+            if new_photo:
+                final_desc = f"{final_desc} |IMG_URL:{new_photo.strip()}|"
             
             final_cat = f"{new_cat} |VERIFIED|" if vendor_key == TRUSTED_VENDOR_KEY else new_cat
                 
@@ -126,16 +132,21 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
                 cur.close()
                 conn.close()
 
-# --- SEARCH & FILTER SYSTEM ---
+# --- SEARCH & FILTER SYSTEM WITH SLIDER ---
 st.markdown("---")
-st.markdown("### 🔍 Search & Filter Deals")
-search_col, filter_col = st.columns([2, 1])
+st.markdown("### 🔍 Filter Controls")
+search_col, filter_col, price_col = st.columns([2, 1, 1])
 
 with search_col:
     search_query = st.text_input("Search listings...", placeholder="Type keywords here...").strip().lower()
 
 with filter_col:
     category_filter = st.selectbox("Filter by Category", ["All Categories", "Electronics", "Vehicles", "Books", "Clothing & Fashion", "Household", "Others"])
+
+with price_col:
+    # UPGRADE: Dynamic Price Slider based on current inventory max value
+    max_slider_value = max(max_item_price, 500.0)
+    price_filter = st.slider("Max Budget (₹)", min_value=0.0, max_value=max_slider_value, value=max_slider_value, step=500.0)
 
 st.markdown("### 🛍️ Available Active Listings")
 
@@ -149,11 +160,15 @@ for item in items:
     clean_cat = str(raw_cat).split(" |VERIFIED|")[0] if raw_cat else "Others"
     category_match = (category_filter == "All Categories") or (clean_cat == category_filter)
     
-    if (title_match or desc_match) and category_match:
+    # Filter out items that cost more than user's slider setting
+    item_price = float(item['price']) if item.get('price') else 0.0
+    price_match = item_price <= price_filter
+    
+    if (title_match or desc_match) and category_match and price_match:
         filtered_items.append(item)
 
 if not filtered_items:
-    st.info("🛍️ No matching listings found.")
+    st.info("🛍️ No listings match your filters or budget range.")
 else:
     cols = st.columns(3)
     for idx, item in enumerate(filtered_items):
@@ -162,15 +177,22 @@ else:
             raw_desc = item['description'] if item.get('description') else ""
             is_urgent = "[URGENT DEAL]" in raw_desc
             
+            # Safe URL parsing strings logic
             pay_url = ""
             if "|PAY_URL:" in raw_desc:
-                parts = raw_desc.split("|PAY_URL:")
-                clean_desc = parts[0].replace("🚨 [URGENT DEAL] ", "")
-                pay_url = parts[1].replace("|", "").strip()
-            else:
-                clean_desc = raw_desc.replace("🚨 [URGENT DEAL] ", "")
+                pay_url = raw_desc.split("|PAY_URL:")[1].split("|")[0].strip()
+                
+            img_url = ""
+            if "|IMG_URL:" in raw_desc:
+                img_url = raw_desc.split("|IMG_URL:")[1].split("|")[0].strip()
             
-            # FIXED SAFE HANDLING FOR NULL CATEGORIES
+            # Clean text block description for output window display
+            clean_desc = raw_desc.replace("🚨 [URGENT DEAL] ", "")
+            if "|PAY_URL:" in clean_desc:
+                clean_desc = clean_desc.split("|PAY_URL:")[0]
+            if "|IMG_URL:" in clean_desc:
+                clean_desc = clean_desc.split("|IMG_URL:")[0]
+            
             raw_cat = item.get('category')
             raw_cat_str = str(raw_cat) if raw_cat is not None else "General"
             is_verified = " |VERIFIED|" in raw_cat_str
@@ -182,9 +204,15 @@ else:
                     st.caption(f"🏷️ {display_cat}")
                 with t_col2:
                     if is_verified:
-                        st.markdown("<span style='color: #00ff00; font-weight: bold;'>🛡️ VERIFIED SELLER</span>", unsafe_allow_html=True)
+                        st.markdown("<span style='color: #00ff00; font-weight: bold;'>🛡️ VERIFIED</span>", unsafe_allow_html=True)
                     else:
                         st.caption("👤 Peer Listing")
+                
+                # Dynamic Image rendering fallback element
+                if img_url:
+                    st.image(img_url, use_container_width=True)
+                else:
+                    st.markdown("<div style='background-color:#222;height:120px;border-radius:5px;display:flex;align-items:center;justify-content:center;color:#666;'>📷 No Image Provided</div>", unsafe_allow_html=True)
                         
                 if is_urgent:
                     st.markdown("🔥 **URGENT LISTING**")
@@ -192,8 +220,8 @@ else:
                 st.markdown(f"#### **Price:** ₹{item['price']}")
                 st.write(clean_desc)
                 
-                report_msg = urllib.parse.quote(f"REPORT: Listing ID {item['id']} ({item['title']}) is suspected of fraud/damage. Please review.")
-                st.markdown(f"<a href='https://wa.me/919876543210?text={report_msg}' style='color: #ff4b4b; font-size: 0.85em; text-decoration: none;'>⚠️ Report Damaged/Fake Item</a>", unsafe_allow_html=True)
+                report_msg = urllib.parse.quote(f"REPORT: Listing ID {item['id']} is flagged.")
+                st.markdown(f"<a href='https://wa.me/919876543210?text={report_msg}' style='color: #ff4b4b; font-size: 0.85em; text-decoration: none;'>⚠️ Report Damaged/Fake</a>", unsafe_allow_html=True)
                 st.markdown("---")
                 
                 if pay_url:
