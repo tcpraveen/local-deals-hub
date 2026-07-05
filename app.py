@@ -12,8 +12,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# DEFAULT AUTH PASSWORD
+# FIXED AUTH PASSWORDS FOR SECURITY
 SHOPKEEPER_PASSWORD = "shop123"
+TRUSTED_VENDOR_KEY = "trust789" # Secret key for verified shopkeepers
 
 # --- DIRECT DATABASE CONFIGURATION FOR RENDER ---
 db_url_raw = os.getenv("db_url")
@@ -47,7 +48,7 @@ finally:
 
 # --- APPLICATION INTERFACE ---
 st.title("⚡ Neighborhood Deals Hub")
-st.caption("Your Local High-Contrast Marketplace Dashboard")
+st.caption("Your Local High-Contrast Trusted Marketplace Dashboard")
 
 # --- PROTOTYPE FEATURE: LIVE BUSINESS METRICS BAR ---
 st.markdown("### 📊 Hub Statistics")
@@ -60,7 +61,7 @@ with m_col1:
 with m_col2:
     st.metric(label="Total Marketplace Circulation", value=f"₹{total_value:,.2f}")
 with m_col3:
-    st.metric(label="Active Community Hubs", value="1 (Local Area)")
+    st.metric(label="Active Verified Partners", value="Trusted Local Shops")
 
 st.markdown("---")
 
@@ -69,6 +70,9 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
     st.markdown("### 📝 Enter Product Details")
     
     form_password = st.text_input("🔑 Enter Shopkeeper Password to Post", type="password")
+    
+    # TRUST UPGRADE: Verification Key Field
+    vendor_key = st.text_input("⭐ Enter Trusted Vendor Verification Key (Optional - Leaves Badge)", type="password", placeholder="Leave blank if unverified local seller")
     
     f_col1, f_col2 = st.columns(2)
     with f_col1:
@@ -81,7 +85,7 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
     new_desc = st.text_area("Product Description", placeholder="Mention item condition, age, inclusions...")
     
     st.markdown("##### 💳 E-Commerce Integrations")
-    custom_pay_url = st.text_input("🔗 Razorpay/Stripe Payment Link (Optional)", placeholder="e.g., https://rzp.io/l/your_product_link")
+    custom_pay_url = st.text_input("🔗 Secure Escrow / Booking Link (Optional)", placeholder="e.g., https://rzp.io/l/your_product_link")
     
     is_premium = st.checkbox("Mark as ⭐ URGENT / FEATURED deal")
     
@@ -98,6 +102,9 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
                 final_desc = f"🚨 [URGENT DEAL] {final_desc}"
             if custom_pay_url:
                 final_desc = f"{final_desc} |PAY_URL:{custom_pay_url.strip()}|"
+            
+            # Embed verification state into the category string to preserve database structure compatibility
+            final_cat = f"{new_cat} |VERIFIED|" if vendor_key == TRUSTED_VENDOR_KEY else new_cat
                 
             conn = get_db_connection()
             cur = conn.cursor()
@@ -105,7 +112,7 @@ with st.expander("➕ Shopkeeper Menu: Post a New Deal", expanded=False):
                 try:
                     cur.execute(
                         "INSERT INTO items (title, description, price, category, phone) VALUES (%s, %s, %s, %s, %s);",
-                        (new_title, final_desc, new_price, new_cat, new_phone)
+                        (new_title, final_desc, new_price, final_cat, new_phone)
                     )
                 except:
                     conn.rollback()
@@ -141,8 +148,9 @@ for item in items:
     title_match = search_query in item['title'].lower() if item.get('title') else False
     desc_match = search_query in item['description'].lower() if item.get('description') else False
     
-    item_cat = item.get('category') if item.get('category') else "Others"
-    category_match = (category_filter == "All Categories") or (item_cat == category_filter)
+    raw_cat = item.get('category') if item.get('category') else "Others"
+    clean_cat = raw_cat.split(" |VERIFIED|")[0]
+    category_match = (category_filter == "All Categories") or (clean_cat == category_filter)
     
     if (title_match or desc_match) and category_match:
         filtered_items.append(item)
@@ -165,23 +173,39 @@ else:
             else:
                 clean_desc = raw_desc.replace("🚨 [URGENT DEAL] ", "")
             
+            # Check verification tag status
+            raw_cat = item.get('category', 'General')
+            is_verified = " |VERIFIED|" in raw_cat
+            display_cat = raw_cat.replace(" |VERIFIED|", "")
+            
             with st.container(border=True):
-                item_cat = item.get('category') if item.get('category') else "General"
+                # UI Layout for Trust Badges
+                t_col1, t_col2 = st.columns([1, 1])
+                with t_col1:
+                    st.caption(f"🏷️ {display_cat}")
+                with t_col2:
+                    if is_verified:
+                        st.markdown("<span style='color: #00ff00; font-weight: bold;'>🛡️ VERIFIED SELLER</span>", unsafe_allow_html=True)
+                    else:
+                        st.caption("👤 Peer Listing")
+                        
                 if is_urgent:
                     st.markdown("🔥 **URGENT LISTING**")
-                st.caption(f"🏷️ {item_cat}")
                 st.markdown(f"### {item['title']}")
                 st.markdown(f"#### **Price:** ₹{item['price']}")
                 st.write(clean_desc)
+                
+                # Trust Feature: Easy customer warning/report link
+                report_msg = urllib.parse.quote(f"REPORT: Listing ID {item['id']} ({item['title']}) is suspected of fraud/damage. Please review.")
+                st.markdown(f"<a href='https://wa.me/919876543210?text={report_msg}' style='color: #ff4b4b; font-size: 0.85em; text-decoration: none;'>⚠️ Report Damaged/Fake Item</a>", unsafe_allow_html=True)
                 st.markdown("---")
                 
-                # --- FIXED: Added unique key strings to avoid element conflicts ---
                 if pay_url:
-                    st.link_button("💳 Instant Booking / Pay Now", pay_url, use_container_width=True, type="primary", key=f"pay_btn_{item['id']}")
+                    st.link_button("💳 Secure Booking / Pay Now", pay_url, use_container_width=True, type="primary", key=f"pay_btn_{item['id']}")
                 
                 raw_phone = item.get('phone')
                 if raw_phone and str(raw_phone).strip() and str(raw_phone) != "None":
-                    encoded_msg = urllib.parse.quote(f"Hi, I am interested in buying your '{item['title']}'!")
+                    encoded_msg = urllib.parse.quote(f"Hi, I am interested in checking out your '{item['title']}'!")
                     st.link_button("💬 Chat on WhatsApp", f"https://wa.me/{str(raw_phone).strip()}?text={encoded_msg}", use_container_width=True, key=f"wa_btn_{item['id']}")
                 elif not pay_url:
                     st.button("📍 Available Locally", disabled=True, use_container_width=True, key=f"local_btn_{item['id']}")
@@ -196,7 +220,7 @@ with st.expander("🗑️ Shopkeeper Menu: Remove Listings", expanded=False):
         if not items:
             st.info("No items in inventory to delete.")
         else:
-            st.warning("Clicking a red delete button below will remove the product permanently from the app.")
+            st.warning("Clicking a red delete button below will remove the product permanently.")
             for row in items:
                 del_col1, del_col2 = st.columns([4, 1])
                 with del_col1:
