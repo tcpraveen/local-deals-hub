@@ -1,16 +1,6 @@
-import streamlit as st
-from supabase import create_client, Client
 import os
-
-# 1. Force install supabase right on boot before any other code runs
-try:
-    import supabase
-except ModuleNotFoundError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "supabase"])
-
 import streamlit as st
 from supabase import create_client, Client
-
 # 2. Page Configuration & Styling
 st.set_page_config(page_title="Neighborhood Deals Hub", layout="wide")
 
