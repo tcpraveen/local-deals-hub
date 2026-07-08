@@ -10,8 +10,7 @@ except ModuleNotFoundError:
     from supabase import create_client, Client
 
 import streamlit as st
-import os
-from supabase import create_client, Client
+
 
 # 1. DATABASE CONNECTION
 # Automatically connects using your existing Render environment variables
