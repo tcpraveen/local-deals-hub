@@ -1,3 +1,14 @@
+import os
+import subprocess
+import sys
+
+# Automatically force-install supabase if Render misses it
+try:
+    from supabase import create_client, Client
+except ModuleNotFoundError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "supabase"])
+    from supabase import create_client, Client
+
 import streamlit as st
 import os
 from supabase import create_client, Client
