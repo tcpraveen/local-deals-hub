@@ -1,5 +1,5 @@
 # --- NEW FEATURE: RATINGS & REVIEWS SYSTEM ---
-item_id = item['id']  # Gets the database ID of the current item
+st.link_button("💬 Chat on WhatsApp", ...)
 
 # 1. Fetch existing reviews from Supabase for this specific item
 try:
