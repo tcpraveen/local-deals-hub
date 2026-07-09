@@ -12,19 +12,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 3. Initialize Supabase Connection
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-
-# Fallback check if env variables aren't initialized yet
-if not SUPABASE_URL or not SUPABASE_KEY:
-    try:
-        SUPABASE_URL = st.secrets["SUPABASE_URL"]
-        SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-    except Exception:
-        st.error("Missing Supabase API keys in Render environment secrets.")
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-
 
 # 4. Sidebar - Shopkeeper Portal
 with st.sidebar:
