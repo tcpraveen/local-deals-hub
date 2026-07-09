@@ -9,7 +9,7 @@ st.markdown("""
     .report-link { color: #ff4b4b; font-weight: bold; font-size: 0.85rem; text-decoration: none; }
     .badge { background-color: #262730; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; color: #fafafa; }
     </style>
-""", unsafe_html=True)
+""", unsafe_allow_html=True)
 
 # 3. Initialize Supabase Connection
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
