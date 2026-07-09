@@ -12,9 +12,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 3. Initialize Supabase Connection
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 # 4. Sidebar - Shopkeeper Portal
 with st.sidebar:
     st.markdown("# 🔐 Shopkeeper Portal")
