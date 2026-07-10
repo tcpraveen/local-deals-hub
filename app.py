@@ -35,8 +35,8 @@ try:
     items_response = supabase.table("items").select("*").execute()
     items = items_response.data
 except Exception as e:
+    st.error(f"Database Error: {e}")
     items = []
-
 col_stats1, col_stats2, col_stats3 = st.columns(3)
 with col_stats1:
     st.metric("Total Active Listings", f"{len(items)} Items")
