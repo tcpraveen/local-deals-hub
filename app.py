@@ -59,12 +59,26 @@ with col_f3:
     max_budget = st.slider("Max Budget (₹)", min_value=0, max_value=300000, value=150000, step=5000)
 
 # 7. Grid Layout for Product Cards
-if items:
-    filtered_items = [
-        i for i in items 
-        if (search_query.lower() in i.get('title', '').lower() or search_query.lower() in i.get('description', '').lower())
-        and (float(i.get('price', 0)) <= max_budget)
-    ]
+filtered_items = []
+    for i in items:
+        # 1. Search filter match
+        search_match = (search_query.lower() in str(i.get('title', '')).lower() or 
+                        search_query.lower() in str(i.get('description', '')).lower())
+        
+        # 2. Category filter match
+        cat_db = i.get('category')
+        cat_match = (category == "All Categories" or 
+                     (cat_db and category.lower() in str(cat_db).lower()))
+        
+        # 3. Budget filter match
+        try:
+            item_price = float(i.get('price', 0))
+        except:
+            item_price = 0
+        price_match = (item_price <= max_budget)
+        
+        if search_match and cat_match and price_match:
+            filtered_items.append(i)
     
     if filtered_items:
         cols = st.columns(3)
