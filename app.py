@@ -14,7 +14,7 @@ st.markdown("""
 # 3. Initialize Supabase Connection
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
-# 4. Sidebar - Shopkeeper Portal
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 with st.sidebar:
     st.markdown("# 🔐 Shopkeeper Portal")
     st.write("Enter Merchant Pin to Unlock Management Tools")
