@@ -71,7 +71,7 @@ with col_stats3:
 
 st.markdown("---")
 
-# 📥 NEW: MERCHANT FORM FOR UPDATING/ADDING ITEMS
+# 📥 MERCHANT FORM FOR ADDING ITEMS
 if is_merchant:
     st.markdown("## 📥 Add New Item to Marketplace")
     with st.form(key="add_item_form", clear_on_submit=True):
@@ -140,9 +140,8 @@ if filtered_items:
                 st.markdown(f"### {item.get('title', 'No Title')}")
                 st.markdown(f"**Price:** ₹{float(item.get('price', 0)):,.2f}")
                 st.write(item.get('description', ''))
-                st.markdown("<a class='report-link' href='#'>⚠️ Report Damaged/Fake</a>", unsafe_allow_html=True)
                 
-                # --- REVIEWS SYSTEM ---
+                # Fetch feedback records for star metrics
                 item_id = item['id']
                 try:
                     reviews_resp = supabase.table("feedback").select("*").eq("item_id", item_id).execute()
@@ -154,40 +153,13 @@ if filtered_items:
                     avg_rating = sum([r['rating'] for r in reviews]) / len(reviews)
                     st.markdown(f"**Rating:** {'⭐' * int(round(avg_rating))} ({avg_rating:.1f}/5)")
                 else:
-                    st.markdown("*No ratings yet. Be the first to review!*")
+                    st.markdown("*No ratings yet.*")
                 
-                with st.expander("📝 Write a Customer Review"):
-                    with st.form(key=f"review_{item_id}", clear_on_submit=True):
-                        user_rating = st.selectbox("Select Stars", [5, 4, 3, 2, 1], key=f"s_{item_id}")
-                        user_comment = st.text_input("Comment...", placeholder="e.g., Great condition!", key=f"c_{item_id}")
-                        if st.form_submit_button("Submit Review"):
-                            if user_comment.strip():
-                                try:
-                                    supabase.table("feedback").insert({
-                                        "item_id": item_id,
-                                        "rating": user_rating,
-                                        "comment": user_comment
-                                    }).execute()
-                                    st.success("Submitted! Refresh to update.")
-                                    st.rerun()
-                                except Exception as err:
-                                    st.error(f"Error saving review: {err}")
-                            else:
-                                st.warning("Please leave a comment text.")
-                
-                if reviews:
-                    with st.expander("💬 View Recent Comments"):
-                        for r in reviews[-2:]:
-                            st.caption(f"{'⭐'*r['rating']} – \"{r['comment']}\"")
-                
-                # --- WhatsApp Action Link ---
-                msg = f"Hi, I'm interested in buying your {item.get('title')} listed for ₹{item.get('price')}."
-                whatsapp_url = f"https://wa.me/919999999999?text={msg.replace(' ', '%20')}"
-                st.link_button("💬 Chat on WhatsApp", whatsapp_url, use_container_width=True)
-                
-                # --- MERCHANT DELETE ACTION ---
+                # --- CONDITION BLOCK: SEPARATE MERCHANT VS CONSUMER ---
                 if is_merchant:
+                    # Show ONLY merchant tools when logged in
                     st.markdown("---")
+                    st.caption("🛠️ Management Actions")
                     if st.button(f"🗑️ Delete Listing", key=f"del_{item_id}", type="primary", use_container_width=True):
                         try:
                             supabase.table("items").delete().eq("id", item_id).execute()
@@ -195,6 +167,38 @@ if filtered_items:
                             st.rerun()
                         except Exception as err:
                             st.error(f"Error: {err}")
+                else:
+                    # Show consumer utilities ONLY when a normal shopper is viewing
+                    st.markdown("<a class='report-link' href='#'>⚠️ Report Damaged/Fake</a>", unsafe_allow_html=True)
+                    
+                    with st.expander("📝 Write a Customer Review"):
+                        with st.form(key=f"review_{item_id}", clear_on_submit=True):
+                            user_rating = st.selectbox("Select Stars", [5, 4, 3, 2, 1], key=f"s_{item_id}")
+                            user_comment = st.text_input("Comment...", placeholder="e.g., Great condition!", key=f"c_{item_id}")
+                            if st.form_submit_button("Submit Review"):
+                                if user_comment.strip():
+                                    try:
+                                        supabase.table("feedback").insert({
+                                            "item_id": item_id,
+                                            "rating": user_rating,
+                                            "comment": user_comment
+                                        }).execute()
+                                        st.success("Submitted! Refresh to update.")
+                                        st.rerun()
+                                    except Exception as err:
+                                        st.error(f"Error saving review: {err}")
+                                else:
+                                    st.warning("Please leave a comment text.")
+                    
+                    if reviews:
+                        with st.expander("💬 View Recent Comments"):
+                            for r in reviews[-2:]:
+                                st.caption(f"{'⭐'*r['rating']} – \"{r['comment']}\"")
+                    
+                    # --- WhatsApp Action Link ---
+                    msg = f"Hi, I'm interested in buying your {item.get('title')} listed for ₹{item.get('price')}."
+                    whatsapp_url = f"https://wa.me/919999999999?text={msg.replace(' ', '%20')}"
+                    st.link_button("💬 Chat on WhatsApp", whatsapp_url, use_container_width=True)
 else:
     if items:
         st.info("No items match your filter settings.")
