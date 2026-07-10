@@ -12,7 +12,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize login session state variables so state persists across button clicks
+# Save the login status so it doesn't vanish on refresh
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -71,14 +71,14 @@ with col_stats3:
 
 st.markdown("---")
 
-# 4b. MERCHANT PORTAL: Add New Listing Form
+# 📥 NEW: MERCHANT FORM FOR UPDATING/ADDING ITEMS
 if is_merchant:
     st.markdown("## 📥 Add New Item to Marketplace")
     with st.form(key="add_item_form", clear_on_submit=True):
         col_in1, col_in2, col_in3 = st.columns([2, 1, 1])
         with col_in1:
             new_title = st.text_input("Product Title*", placeholder="e.g., iPhone 15 Pro Max")
-            new_desc = st.text_input("Description*", placeholder="Condition, battery health, accessories...")
+            new_desc = st.text_input("Description*", placeholder="Condition, details, etc...")
         with col_in2:
             new_cat = st.selectbox("Product Category*", ["Electronics", "General", "Vehicles", "Housing"])
         with col_in3:
@@ -99,7 +99,7 @@ if is_merchant:
                 except Exception as err:
                     st.error(f"Failed to push entry: {err}")
             else:
-                st.warning("Please fill out all required fields and ensure price is greater than ₹0.")
+                st.warning("Please fill out all fields.")
     st.markdown("---")
 
 # 5. Search and Filter Controls
@@ -185,17 +185,16 @@ if filtered_items:
                 whatsapp_url = f"https://wa.me/919999999999?text={msg.replace(' ', '%20')}"
                 st.link_button("💬 Chat on WhatsApp", whatsapp_url, use_container_width=True)
                 
-                # --- MERCHANT ADMINISTRATIVE TOOLS ---
+                # --- MERCHANT DELETE ACTION ---
                 if is_merchant:
                     st.markdown("---")
-                    st.caption("🛠️ Management Actions")
                     if st.button(f"🗑️ Delete Listing", key=f"del_{item_id}", type="primary", use_container_width=True):
                         try:
                             supabase.table("items").delete().eq("id", item_id).execute()
-                            st.success("Listing removed successfully!")
+                            st.success("Listing removed!")
                             st.rerun()
                         except Exception as err:
-                            st.error(f"Error deleting item: {err}")
+                            st.error(f"Error: {err}")
 else:
     if items:
         st.info("No items match your filter settings.")
