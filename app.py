@@ -32,10 +32,10 @@ st.markdown("# ⚡ Neighborhood Deals Hub")
 st.caption("Your Local High-Contrast Trusted Marketplace Dashboard")
 
 try:
-        items_response = supabase.table("items").select("*").execute()
-        items = items_response.data
-    except Exception as e:
-        items = []
+    items_response = supabase.table("items").select("*").execute()
+    items = items_response.data
+except Exception as e:
+    items = []
 
 col_stats1, col_stats2, col_stats3 = st.columns(3)
 with col_stats1:
