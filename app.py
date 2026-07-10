@@ -12,6 +12,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Initialize login session state variables so state persists across button clicks
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
 # 2. Initialize Supabase Connection
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
@@ -25,15 +29,25 @@ else:
 # 3. Sidebar – Shopkeeper Portal
 with st.sidebar:
     st.markdown("# 🛍️ Shopkeeper Portal")
-    st.write("Enter Merchant Pin to Unlock Management Tools")
-    pin_input = st.text_input("Merchant PIN", type="password", label_visibility="collapsed")
-    is_merchant = (pin_input == "123")
+    
+    if not st.session_state.logged_in:
+        st.write("Enter Merchant Pin to Unlock Management Tools")
+        pin_input = st.text_input("Merchant PIN", type="password", label_visibility="collapsed")
+        
+        if st.button("Login as Verified Merchant", use_container_width=True):
+            if pin_input == "123":
+                st.session_state.logged_in = True
+                st.success("Welcome back, Verified Merchant!")
+                st.rerun()
+            else:
+                st.error("Invalid PIN")
+    else:
+        st.success("🔒 Authenticated: Merchant Mode Active")
+        if st.button("Log Out of Portal", use_container_width=True, type="secondary"):
+            st.session_state.logged_in = False
+            st.rerun()
 
-    if st.button("Login as Verified Merchant", use_container_width=True):
-        if is_merchant:
-            st.success("Welcome back, Verified Merchant!")
-        else:
-            st.error("Invalid PIN")
+is_merchant = st.session_state.logged_in
 
 # 4. Main Header & Statistics Dashboard
 st.markdown("# ⚡ Neighborhood Deals Hub")
@@ -56,6 +70,37 @@ with col_stats3:
     st.metric("Merchant Mode Status", "Public Consumer View" if not is_merchant else "Admin Edit Mode")
 
 st.markdown("---")
+
+# 4b. MERCHANT PORTAL: Add New Listing Form
+if is_merchant:
+    st.markdown("## 📥 Add New Item to Marketplace")
+    with st.form(key="add_item_form", clear_on_submit=True):
+        col_in1, col_in2, col_in3 = st.columns([2, 1, 1])
+        with col_in1:
+            new_title = st.text_input("Product Title*", placeholder="e.g., iPhone 15 Pro Max")
+            new_desc = st.text_input("Description*", placeholder="Condition, battery health, accessories...")
+        with col_in2:
+            new_cat = st.selectbox("Product Category*", ["Electronics", "General", "Vehicles", "Housing"])
+        with col_in3:
+            new_price = st.number_input("Price (₹)*", min_value=0, step=500, value=0)
+            
+        submit_new_item = st.form_submit_button("🚀 Deploy Listing to Marketplace", use_container_width=True)
+        if submit_new_item:
+            if new_title.strip() and new_desc.strip() and new_price > 0:
+                try:
+                    supabase.table("items").insert({
+                        "title": new_title,
+                        "description": new_desc,
+                        "category": new_cat,
+                        "price": new_price
+                    }).execute()
+                    st.success(f"Successfully listed '{new_title}'!")
+                    st.rerun()
+                except Exception as err:
+                    st.error(f"Failed to push entry: {err}")
+            else:
+                st.warning("Please fill out all required fields and ensure price is greater than ₹0.")
+    st.markdown("---")
 
 # 5. Search and Filter Controls
 st.markdown("### 🔍 Filter Controls")
@@ -124,6 +169,7 @@ if filtered_items:
                                         "comment": user_comment
                                     }).execute()
                                     st.success("Submitted! Refresh to update.")
+                                    st.rerun()
                                 except Exception as err:
                                     st.error(f"Error saving review: {err}")
                             else:
@@ -138,6 +184,18 @@ if filtered_items:
                 msg = f"Hi, I'm interested in buying your {item.get('title')} listed for ₹{item.get('price')}."
                 whatsapp_url = f"https://wa.me/919999999999?text={msg.replace(' ', '%20')}"
                 st.link_button("💬 Chat on WhatsApp", whatsapp_url, use_container_width=True)
+                
+                # --- MERCHANT ADMINISTRATIVE TOOLS ---
+                if is_merchant:
+                    st.markdown("---")
+                    st.caption("🛠️ Management Actions")
+                    if st.button(f"🗑️ Delete Listing", key=f"del_{item_id}", type="primary", use_container_width=True):
+                        try:
+                            supabase.table("items").delete().eq("id", item_id).execute()
+                            st.success("Listing removed successfully!")
+                            st.rerun()
+                        except Exception as err:
+                            st.error(f"Error deleting item: {err}")
 else:
     if items:
         st.info("No items match your filter settings.")
