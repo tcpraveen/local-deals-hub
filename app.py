@@ -9,6 +9,7 @@ st.markdown("""
     <style>
     .report-link { color: #ff4b4b; font-weight: bold; font-size: 0.85rem; text-decoration: none; }
     .badge { background-color: #262730; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; color: #fafafa; }
+    .product-img { border-radius: 8px; max-height: 200px; object-fit: cover; margin-bottom: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -71,7 +72,7 @@ with col_stats3:
 
 st.markdown("---")
 
-# 📥 MERCHANT FORM FOR ADDING ITEMS
+# 📥 MERCHANT FORM FOR ADDING ITEMS WITH LINKS
 if is_merchant:
     st.markdown("## 📥 Add New Item to Marketplace")
     with st.form(key="add_item_form", clear_on_submit=True):
@@ -81,25 +82,34 @@ if is_merchant:
             new_desc = st.text_input("Description*", placeholder="Condition, details, etc...")
         with col_in2:
             new_cat = st.selectbox("Product Category*", ["Electronics", "General", "Vehicles", "Housing"])
+            new_image = st.text_input("Product Photo URL (Optional)", placeholder="https://example.com/image.jpg")
         with col_in3:
             new_price = st.number_input("Price (₹)*", min_value=0, step=500, value=0)
+            new_payment = st.text_input("Payment Gateway URL (Optional)", placeholder="Stripe/Razorpay link...")
             
         submit_new_item = st.form_submit_button("🚀 Deploy Listing to Marketplace", use_container_width=True)
         if submit_new_item:
             if new_title.strip() and new_desc.strip() and new_price > 0:
                 try:
-                    supabase.table("items").insert({
+                    # Inject dictionary payload supporting optional inputs
+                    payload = {
                         "title": new_title,
                         "description": new_desc,
                         "category": new_cat,
                         "price": new_price
-                    }).execute()
+                    }
+                    if new_image.strip():
+                        payload["image_url"] = new_image.strip()
+                    if new_payment.strip():
+                        payload["payment_url"] = new_payment.strip()
+                        
+                    supabase.table("items").insert(payload).execute()
                     st.success(f"Successfully listed '{new_title}'!")
                     st.rerun()
                 except Exception as err:
                     st.error(f"Failed to push entry: {err}")
             else:
-                st.warning("Please fill out all fields.")
+                st.warning("Please fill out all required fields.")
     st.markdown("---")
 
 # 5. Search and Filter Controls
@@ -136,6 +146,11 @@ if filtered_items:
     for idx, item in enumerate(filtered_items):
         with cols[idx % 3]:
             with st.container(border=True):
+                # Render Photo if present in Supabase data row
+                img_url = item.get('image_url') or item.get('photo_url')
+                if img_url:
+                    st.image(img_url, use_container_width=True)
+                
                 st.markdown(f"<span class='badge'>🏷️ {item.get('category', 'General')}</span> <span class='badge'>👤 Peer Listing</span>", unsafe_allow_html=True)
                 st.markdown(f"### {item.get('title', 'No Title')}")
                 st.markdown(f"**Price:** ₹{float(item.get('price', 0)):,.2f}")
@@ -157,7 +172,6 @@ if filtered_items:
                 
                 # --- CONDITION BLOCK: SEPARATE MERCHANT VS CONSUMER ---
                 if is_merchant:
-                    # Show ONLY merchant tools when logged in
                     st.markdown("---")
                     st.caption("🛠️ Management Actions")
                     if st.button(f"🗑️ Delete Listing", key=f"del_{item_id}", type="primary", use_container_width=True):
@@ -168,7 +182,6 @@ if filtered_items:
                         except Exception as err:
                             st.error(f"Error: {err}")
                 else:
-                    # Show consumer utilities ONLY when a normal shopper is viewing
                     st.markdown("<a class='report-link' href='#'>⚠️ Report Damaged/Fake</a>", unsafe_allow_html=True)
                     
                     with st.expander("📝 Write a Customer Review"):
@@ -195,7 +208,11 @@ if filtered_items:
                             for r in reviews[-2:]:
                                 st.caption(f"{'⭐'*r['rating']} – \"{r['comment']}\"")
                     
-                    # --- WhatsApp Action Link ---
+                    # --- Pay Now vs WhatsApp Buttons ---
+                    pay_url = item.get('payment_url')
+                    if pay_url:
+                        st.link_button("💳 Instant Buy / Pay Now", pay_url, use_container_width=True, type="primary")
+                    
                     msg = f"Hi, I'm interested in buying your {item.get('title')} listed for ₹{item.get('price')}."
                     whatsapp_url = f"https://wa.me/919999999999?text={msg.replace(' ', '%20')}"
                     st.link_button("💬 Chat on WhatsApp", whatsapp_url, use_container_width=True)
