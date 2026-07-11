@@ -76,22 +76,29 @@ st.markdown("---")
 if is_merchant:
     st.markdown("## 📥 Add New Item to Marketplace")
     with st.form(key="add_item_form", clear_on_submit=True):
+        # Row 1: Core details
         col_in1, col_in2, col_in3 = st.columns([2, 1, 1])
         with col_in1:
             new_title = st.text_input("Product Title*", placeholder="e.g., iPhone 15 Pro Max")
-            new_desc = st.text_input("Description*", placeholder="Condition, details, etc...")
         with col_in2:
             new_cat = st.selectbox("Product Category*", ["Electronics", "General", "Vehicles", "Housing"])
-            new_image = st.text_input("Product Photo URL (Optional)", placeholder="https://example.com/image.jpg")
         with col_in3:
             new_price = st.number_input("Price (₹)*", min_value=0, step=500, value=0)
-            new_payment = st.text_input("Payment Gateway URL (Optional)", placeholder="Stripe/Razorpay link...")
+            
+        # Row 2: Media and Description details
+        col_in4, col_in5 = st.columns([2, 2])
+        with col_in4:
+            new_desc = st.text_input("Description*", placeholder="Condition, details, etc...")
+        with col_in5:
+            new_image = st.text_input("Product Photo URL (Optional)", placeholder="https://example.com/image.jpg")
+            
+        # Row 3: Payment Link
+        new_payment = st.text_input("Payment Gateway URL (Optional)", placeholder="Stripe/Razorpay link...")
             
         submit_new_item = st.form_submit_button("🚀 Deploy Listing to Marketplace", use_container_width=True)
         if submit_new_item:
             if new_title.strip() and new_desc.strip() and new_price > 0:
                 try:
-                    # Inject dictionary payload supporting optional inputs
                     payload = {
                         "title": new_title,
                         "description": new_desc,
@@ -146,10 +153,12 @@ if filtered_items:
     for idx, item in enumerate(filtered_items):
         with cols[idx % 3]:
             with st.container(border=True):
-                # Render Photo if present in Supabase data row
+                # 🖼️ RENDER PHOTO WITH THE PLACEHOLDER UPGRADE
                 img_url = item.get('image_url') or item.get('photo_url')
                 if img_url:
                     st.image(img_url, use_container_width=True)
+                else:
+                    st.image("https://placehold.co/600x400/262730/fafafa?text=No+Image+Provided", use_container_width=True)
                 
                 st.markdown(f"<span class='badge'>🏷️ {item.get('category', 'General')}</span> <span class='badge'>👤 Peer Listing</span>", unsafe_allow_html=True)
                 st.markdown(f"### {item.get('title', 'No Title')}")
