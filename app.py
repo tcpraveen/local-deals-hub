@@ -22,6 +22,24 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.2);
     }
     
+    /* Fixed aspect ratio container for images */
+    .img-container {
+        width: 100%;
+        height: 200px;
+        overflow: hidden;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        background-color: #1a1c23;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .img-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
     /* Input form layout header styling */
     .section-header {
         font-size: 1.5rem;
@@ -95,7 +113,7 @@ with col_stats3:
 
 st.markdown("<br><hr>", unsafe_allow_html=True)
 
-# 📥 UPGRADED MERCHANT FORM FOR ADDING ITEMS
+# 📥 MERCHANT FORM FOR ADDING ITEMS
 if is_merchant:
     st.markdown("<div class='section-header'>📥 Add New Item to Marketplace</div>", unsafe_allow_html=True)
     with st.container(border=True):
@@ -118,7 +136,8 @@ if is_merchant:
                 
             # Row 3: Payment Link
             new_payment = st.text_input("Payment Gateway URL (Optional)", placeholder="Stripe/Razorpay link...")
-                
+            
+            st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
             submit_new_item = st.form_submit_button("🚀 Deploy Listing Live", use_container_width=True, type="primary")
             if submit_new_item:
                 if new_title.strip() and new_desc.strip() and new_price > 0:
@@ -180,12 +199,16 @@ if filtered_items:
     for idx, item in enumerate(filtered_items):
         with cols[idx % 3]:
             with st.container(border=True):
-                # 🖼️ Product Image Render with fallbacks
+                # 🖼️ Aspect-Ratio Crop Framework for Images
                 img_url = item.get('image_url') or item.get('photo_url')
-                if img_url:
-                    st.image(img_url, use_container_width=True)
-                else:
-                    st.image("https://placehold.co/600x400/1a1c23/fafafa?text=No+Image+Provided", use_container_width=True)
+                if not img_url:
+                    img_url = "https://placehold.co/600x400/1a1c23/fafafa?text=No+Image+Provided"
+                
+                st.markdown(f"""
+                    <div class='img-container'>
+                        <img src='{img_url}' alt='Product Image'>
+                    </div>
+                """, unsafe_allow_html=True)
                 
                 # Badges row
                 st.markdown(f"""
