@@ -2,14 +2,36 @@ import os
 import streamlit as st
 from supabase import create_client, Client
 
-# 1. Page Configuration & Styling
+# 1. Page Configuration & Professional UI Styling
 st.set_page_config(page_title="Neighborhood Deals Hub", layout="wide")
 
+# Custom injection for enhanced card modern look and unified styling
 st.markdown("""
     <style>
+    /* Styling for global tags and links */
     .report-link { color: #ff4b4b; font-weight: bold; font-size: 0.85rem; text-decoration: none; }
-    .badge { background-color: #262730; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; color: #fafafa; }
-    .product-img { border-radius: 8px; max-height: 200px; object-fit: cover; margin-bottom: 10px; }
+    .badge { background-color: #1e1e24; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; color: #00d2ff; font-weight: 600; margin-right: 5px; }
+    .peer-badge { background-color: #2e3b2e; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; color: #7fe57f; font-weight: 600; }
+    
+    /* Stat Container Overrides */
+    div[data-testid="stMetric"] {
+        background-color: #1a1c23;
+        border: 1px solid #2d313f;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+    
+    /* Input form layout header styling */
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #ffffff;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -29,7 +51,7 @@ else:
 
 # 3. Sidebar – Shopkeeper Portal
 with st.sidebar:
-    st.markdown("# 🛍️ Shopkeeper Portal")
+    st.markdown("## 🛍️ Shopkeeper Portal")
     
     if not st.session_state.logged_in:
         st.write("Enter Merchant Pin to Unlock Management Tools")
@@ -53,6 +75,7 @@ is_merchant = st.session_state.logged_in
 # 4. Main Header & Statistics Dashboard
 st.markdown("# ⚡ Neighborhood Deals Hub")
 st.caption("Your Local High-Contrast Trusted Marketplace Dashboard")
+st.markdown("<br>", unsafe_allow_html=True)
 
 try:
     items_response = supabase.table("items").select("*").execute()
@@ -63,71 +86,75 @@ except Exception as e:
 
 col_stats1, col_stats2, col_stats3 = st.columns(3)
 with col_stats1:
-    st.metric("Total Active Listings", f"{len(items)} Items")
+    st.metric("📦 Total Active Listings", f"{len(items)} Items")
 with col_stats2:
     total_circulation = sum([float(item.get('price', 0)) for item in items])
-    st.metric("Total Marketplace Circulation", f"₹{total_circulation:,.2f}")
+    st.metric("💰 Total Marketplace Circulation", f"₹{total_circulation:,.2f}")
 with col_stats3:
-    st.metric("Merchant Mode Status", "Public Consumer View" if not is_merchant else "Admin Edit Mode")
+    st.metric("🔧 Merchant Mode Status", "Public Consumer View" if not is_merchant else "Admin Edit Mode")
 
-st.markdown("---")
+st.markdown("<br><hr>", unsafe_allow_html=True)
 
-# 📥 MERCHANT FORM FOR ADDING ITEMS WITH LINKS
+# 📥 UPGRADED MERCHANT FORM FOR ADDING ITEMS
 if is_merchant:
-    st.markdown("## 📥 Add New Item to Marketplace")
-    with st.form(key="add_item_form", clear_on_submit=True):
-        # Row 1: Core details
-        col_in1, col_in2, col_in3 = st.columns([2, 1, 1])
-        with col_in1:
-            new_title = st.text_input("Product Title*", placeholder="e.g., iPhone 15 Pro Max")
-        with col_in2:
-            new_cat = st.selectbox("Product Category*", ["Electronics", "General", "Vehicles", "Housing"])
-        with col_in3:
-            new_price = st.number_input("Price (₹)*", min_value=0, step=500, value=0)
-            
-        # Row 2: Media and Description details
-        col_in4, col_in5 = st.columns([2, 2])
-        with col_in4:
-            new_desc = st.text_input("Description*", placeholder="Condition, details, etc...")
-        with col_in5:
-            new_image = st.text_input("Product Photo URL (Optional)", placeholder="https://example.com/image.jpg")
-            
-        # Row 3: Payment Link
-        new_payment = st.text_input("Payment Gateway URL (Optional)", placeholder="Stripe/Razorpay link...")
-            
-        submit_new_item = st.form_submit_button("🚀 Deploy Listing to Marketplace", use_container_width=True)
-        if submit_new_item:
-            if new_title.strip() and new_desc.strip() and new_price > 0:
-                try:
-                    payload = {
-                        "title": new_title,
-                        "description": new_desc,
-                        "category": new_cat,
-                        "price": new_price
-                    }
-                    if new_image.strip():
-                        payload["image_url"] = new_image.strip()
-                    if new_payment.strip():
-                        payload["payment_url"] = new_payment.strip()
-                        
-                    supabase.table("items").insert(payload).execute()
-                    st.success(f"Successfully listed '{new_title}'!")
-                    st.rerun()
-                except Exception as err:
-                    st.error(f"Failed to push entry: {err}")
-            else:
-                st.warning("Please fill out all required fields.")
-    st.markdown("---")
+    st.markdown("<div class='section-header'>📥 Add New Item to Marketplace</div>", unsafe_allow_html=True)
+    with st.container(border=True):
+        with st.form(key="add_item_form", clear_on_submit=True):
+            # Row 1: Core details
+            col_in1, col_in2, col_in3 = st.columns([2, 1, 1])
+            with col_in1:
+                new_title = st.text_input("Product Title*", placeholder="e.g., iPhone 15 Pro Max")
+            with col_in2:
+                new_cat = st.selectbox("Product Category*", ["Electronics", "General", "Vehicles", "Housing"])
+            with col_in3:
+                new_price = st.number_input("Price (₹)*", min_value=0, step=500, value=0)
+                
+            # Row 2: Media and Description details
+            col_in4, col_in5 = st.columns([2, 2])
+            with col_in4:
+                new_desc = st.text_input("Description*", placeholder="Condition, details, etc...")
+            with col_in5:
+                new_image = st.text_input("Product Photo URL (Optional)", placeholder="https://example.com/image.jpg")
+                
+            # Row 3: Payment Link
+            new_payment = st.text_input("Payment Gateway URL (Optional)", placeholder="Stripe/Razorpay link...")
+                
+            submit_new_item = st.form_submit_button("🚀 Deploy Listing Live", use_container_width=True, type="primary")
+            if submit_new_item:
+                if new_title.strip() and new_desc.strip() and new_price > 0:
+                    try:
+                        payload = {
+                            "title": new_title,
+                            "description": new_desc,
+                            "category": new_cat,
+                            "price": new_price
+                        }
+                        if new_image.strip():
+                            payload["image_url"] = new_image.strip()
+                        if new_payment.strip():
+                            payload["payment_url"] = new_payment.strip()
+                            
+                        supabase.table("items").insert(payload).execute()
+                        st.success(f"Successfully listed '{new_title}'!")
+                        st.rerun()
+                    except Exception as err:
+                        st.error(f"Failed to push entry: {err}")
+                else:
+                    st.warning("Please fill out all required fields.")
+    st.markdown("<br>", unsafe_allow_html=True)
 
 # 5. Search and Filter Controls
-st.markdown("### 🔍 Filter Controls")
-col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
-with col_f1:
-    search_query = st.text_input("Search listings...", placeholder="Type keywords here...")
-with col_f2:
-    category = st.selectbox("Filter by Category", ["All Categories", "General", "Electronics", "Vehicles", "Housing"])
-with col_f3:
-    max_budget = st.slider("Max Budget (₹)", min_value=0, max_value=300000, value=150000, step=5000)
+st.markdown("<div class='section-header'>🔍 Filter Controls</div>", unsafe_allow_html=True)
+with st.container(border=True):
+    col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
+    with col_f1:
+        search_query = st.text_input("Search listings...", placeholder="Type keywords here...", label_visibility="collapsed")
+    with col_f2:
+        category = st.selectbox("Filter by Category", ["All Categories", "General", "Electronics", "Vehicles", "Housing"], label_visibility="collapsed")
+    with col_f3:
+        max_budget = st.slider("Max Budget (₹)", min_value=0, max_value=300000, value=150000, step=5000)
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 # 6. Safe Filtering Logic
 filtered_items = []
@@ -153,16 +180,23 @@ if filtered_items:
     for idx, item in enumerate(filtered_items):
         with cols[idx % 3]:
             with st.container(border=True):
-                # 🖼️ RENDER PHOTO WITH THE PLACEHOLDER UPGRADE
+                # 🖼️ Product Image Render with fallbacks
                 img_url = item.get('image_url') or item.get('photo_url')
                 if img_url:
                     st.image(img_url, use_container_width=True)
                 else:
-                    st.image("https://placehold.co/600x400/262730/fafafa?text=No+Image+Provided", use_container_width=True)
+                    st.image("https://placehold.co/600x400/1a1c23/fafafa?text=No+Image+Provided", use_container_width=True)
                 
-                st.markdown(f"<span class='badge'>🏷️ {item.get('category', 'General')}</span> <span class='badge'>👤 Peer Listing</span>", unsafe_allow_html=True)
+                # Badges row
+                st.markdown(f"""
+                    <div style='margin-bottom: 10px;'>
+                        <span class='badge'>🏷️ {item.get('category', 'General')}</span>
+                        <span class='peer-badge'>👤 Peer Listing</span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
                 st.markdown(f"### {item.get('title', 'No Title')}")
-                st.markdown(f"**Price:** ₹{float(item.get('price', 0)):,.2f}")
+                st.markdown(f"### **₹{float(item.get('price', 0)):,.2f}**")
                 st.write(item.get('description', ''))
                 
                 # Fetch feedback records for star metrics
@@ -191,7 +225,7 @@ if filtered_items:
                         except Exception as err:
                             st.error(f"Error: {err}")
                 else:
-                    st.markdown("<a class='report-link' href='#'>⚠️ Report Damaged/Fake</a>", unsafe_allow_html=True)
+                    st.markdown("<div style='margin-top: 10px; margin-bottom: 10px;'><a class='report-link' href='#'>⚠️ Report Damaged/Fake</a></div>", unsafe_allow_html=True)
                     
                     with st.expander("📝 Write a Customer Review"):
                         with st.form(key=f"review_{item_id}", clear_on_submit=True):
@@ -217,6 +251,7 @@ if filtered_items:
                             for r in reviews[-2:]:
                                 st.caption(f"{'⭐'*r['rating']} – \"{r['comment']}\"")
                     
+                    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
                     # --- Pay Now vs WhatsApp Buttons ---
                     pay_url = item.get('payment_url')
                     if pay_url:
