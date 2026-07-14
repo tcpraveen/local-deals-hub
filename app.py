@@ -5,7 +5,7 @@ import streamlit as st
 from supabase import create_client, Client
 from streamlit_geolocation import streamlit_geolocation
 
-# 1. Page Configuration & Professional High-Contrast UI Styling
+# 1. Page Configuration & Professional Premium Theme UI Styling
 st.set_page_config(page_title="Neighborhood Deals Hub", layout="wide")
 
 st.markdown("""
@@ -14,8 +14,8 @@ st.markdown("""
     .badge { background-color: #1e1e24; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; color: #00d2ff; font-weight: 600; margin-right: 5px; }
     .loc-badge { background-color: #2a2315; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; color: #ffaa00; font-weight: 600; margin-right: 5px; }
     .dist-badge { background-color: #1b2a3a; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; color: #00ffcc; font-weight: 600; }
+    .verified-badge { background-color: #064e3b; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; color: #34d399; font-weight: 700; margin-right: 5px; border: 1px solid #059669; }
     
-    /* 🎨 Fix 4: High-Contrast Layout Adjustment for Better Scanability */
     .product-title {
         font-size: 1.35rem;
         font-weight: 800;
@@ -96,7 +96,7 @@ if "merchant_id" not in st.session_state:
 if "merchant_name" not in st.session_state:
     st.session_state.merchant_name = None
 
-# Initialize Supabase
+# Initialize Supabase Connection
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
@@ -106,17 +106,17 @@ else:
     st.error("Missing Supabase API keys in Render environment secrets.")
     st.stop()
 
-# 🛑 Fix 1: Automated Listing Content Quality Guidelines & Text Clean Filter
+# Server-Side Listing Quality Content Rules Filter Engine
 def clean_listing_text(text):
     if not text:
         return ""
-    # Remove scam phrases, fake urgency tags, and excessive punctuation tags
     cleaned = re.sub(r'\[\s*URGENT\s*DEAL\s*\]', '', text, flags=re.IGNORECASE)
     cleaned = re.sub(r'URGENT', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'\|VERIFIED\|', '', cleaned, flags=re.IGNORECASE)  # Strip legacy hardcoded text labels
     cleaned = re.sub(r'[🚨🔴🔥🛑❗❗]', '', cleaned)
     return cleaned.strip()
 
-# Haversine Distance Formula
+# Haversine Proximity Math Calculation
 def calculate_distance(lat1, lon1, lat2, lon2):
     if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
         return None
@@ -129,7 +129,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
-# Sidebar – Shopkeeper Portal
+# Sidebar Portal
 with st.sidebar:
     st.markdown("## 🛍️ Shopkeeper Portal")
     
@@ -167,7 +167,7 @@ with st.sidebar:
 
 is_merchant = st.session_state.logged_in
 
-# Main Interface
+# Primary Layout Header Banner
 st.markdown("# ⚡ Neighborhood Deals Hub")
 st.caption("Auto-Detecting Nearby Deals Safely and Privately")
 
@@ -189,12 +189,11 @@ else:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Fetch data with safety fallbacks
+# Fetch data pipelines
 try:
     items_response = supabase.table("items").select("*").execute()
     items = items_response.data
     
-    # 📞 Fix 5: Fetch store metadata to map phone records dynamically
     merchants_response = supabase.table("merchants").select("shop_id, phone_number").execute()
     merchant_directory = {m['shop_id']: m.get('phone_number') for m in merchants_response.data} if merchants_response.data else {}
 except Exception as e:
@@ -202,7 +201,7 @@ except Exception as e:
     items = []
     merchant_directory = {}
 
-# MERCHANT ITEM SUBMISSION FORM
+# SECURE MERCHANT FORM INTERFACE
 if is_merchant:
     st.markdown(f"<div class='section-header'>📥 Add New Item from {st.session_state.merchant_name}</div>", unsafe_allow_html=True)
     with st.container(border=True):
@@ -219,7 +218,6 @@ if is_merchant:
             with col_in4:
                 new_desc = st.text_input("Description*", placeholder="Condition, specifics...")
             with col_in5:
-                # 🛑 Fix 3: Enforcing location text strict validation defaults
                 new_loc = st.text_input("City/Area Label*", placeholder="e.g., North Authoor, Coimbatore")
                 
             col_gps1, col_gps2 = st.columns(2)
@@ -231,6 +229,7 @@ if is_merchant:
             col_in6, col_in7 = st.columns([2, 2])
             with col_in6:
                 new_image = st.text_input("Product Photo URL (Optional)")
+                st.caption("💡 Leaving this blank automatically applies a matching category vector icon.")
             with col_in7:
                 new_payment = st.text_input("Payment Link (Optional)")
             
@@ -239,7 +238,6 @@ if is_merchant:
             
             if submit_new_item:
                 if new_title.strip() and new_desc.strip() and new_price > 0:
-                    # Apply automated content filters to block spam phrases
                     filtered_title = clean_listing_text(new_title)
                     filtered_desc = clean_listing_text(new_desc)
                     final_loc = new_loc.strip() if new_loc.strip() else "Local Area"
@@ -261,7 +259,7 @@ if is_merchant:
                             payload["payment_url"] = new_payment.strip()
                             
                         supabase.table("items").insert(payload).execute()
-                        st.success("Listing deployed cleanly!")
+                        st.success("Listing successfully deployed live!")
                         st.rerun()
                     except Exception as err:
                         st.error(f"Failed to push entry: {err}")
@@ -269,7 +267,7 @@ if is_merchant:
                     st.warning("Please fill out all required fields.")
     st.markdown("<br>", unsafe_allow_html=True)
 
-# Filter Controls Panel
+# 5. Search Panel & Filter System
 st.markdown("<div class='section-header'>🔍 Filter Controls</div>", unsafe_allow_html=True)
 with st.container(border=True):
     col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
@@ -282,16 +280,16 @@ with st.container(border=True):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Filter Items Loop
+# 6. Content Sanitization & Distance Match Processing
 filtered_items = []
 for i in items:
-    # Run structural database cleanups on the fly for legacy data items
+    # On-the-fly filtering cleanups to strip manual legacy verified text inputs
     t_clean = clean_listing_text(i.get('title', ''))
     d_clean = clean_listing_text(i.get('description', ''))
+    c_clean = clean_listing_text(i.get('category', 'General'))
     
     search_match = (search_query.lower() in t_clean.lower() or search_query.lower() in d_clean.lower())
-    cat_db = i.get('category')
-    cat_match = (category == "All Categories" or (cat_db and category.lower() in str(cat_db).lower()))
+    cat_match = (category == "All Categories" or (category.lower() in c_clean.lower()))
     
     try:
         item_price = float(i.get('price', 0))
@@ -304,9 +302,9 @@ for i in items:
     computed_dist = calculate_distance(user_lat, user_lon, i_lat, i_lon)
     i['calculated_distance'] = computed_dist
     
-    # Apply modifications directly to active viewing dictionaries
     i['title'] = t_clean
     i['description'] = d_clean
+    i['category'] = c_clean
     if not i.get('location') or i.get('location') == "None":
         i['location'] = "Local Area"
         
@@ -316,7 +314,7 @@ for i in items:
 if user_lat and user_lon:
     filtered_items.sort(key=lambda x: x['calculated_distance'] if x['calculated_distance'] is not None else float('inf'))
 
-# Render Grid
+# 7. Grid Card Visual Presentation Renderer
 if filtered_items:
     cols = st.columns(3)
     for idx, item in enumerate(filtered_items):
@@ -349,15 +347,20 @@ if filtered_items:
                 dist_value = item.get('calculated_distance')
                 dist_html = f"<span class='dist-badge'>⚡ {dist_value:.1f} km away</span>" if dist_value is not None else ""
                 
+                # Check backend verification mapping safely
+                associated_merchant = item.get('merchant_id')
+                is_verified_shop = associated_merchant in merchant_directory and associated_merchant is not None
+                verified_html = "<span class='verified-badge'>✨ Verified Shop</span>" if is_verified_shop else ""
+                
                 st.markdown(f"""
                     <div style='margin-bottom: 6px;'>
                         <span class='badge'>🏷️ {item.get('category', 'General')}</span>
                         <span class='loc-badge'>📍 {item.get('location', 'Local Area')}</span>
                         {dist_html}
+                        {verified_html}
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # 🎨 Fix 4: Output structured high-contrast layout tags directly
                 st.markdown(f"<div class='product-title'>{item.get('title', 'No Title')}</div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='product-price'>₹{float(item.get('price', 0)):,.2f}</div>", unsafe_allow_html=True)
                 st.write(item.get('description', ''))
@@ -366,7 +369,7 @@ if filtered_items:
                 
                 if is_merchant and item.get('merchant_id') == st.session_state.merchant_id:
                     st.markdown("---")
-                    st.caption("🛠 Greenwood Shop Manager Control")
+                    st.caption("🛠️ Shop Manager Control Panel")
                     if st.button(f"🗑️ Remove Listing", key=f"del_{item_id}", type="primary", use_container_width=True):
                         try:
                             supabase.table("items").delete().eq("id", item_id).execute()
@@ -395,14 +398,11 @@ if filtered_items:
                     if pay_url and pay_url != "None":
                         st.link_button("💳 Instant Buy / Pay Now", pay_url, use_container_width=True, type="primary")
                     
-                    # 📞 Fix 5: Extract dynamic phone information from store references
-                    associated_merchant = item.get('merchant_id')
                     raw_phone = merchant_directory.get(associated_merchant)
-                    # Safe fallback numbers if not mapped in the database yet
-                    clean_phone = str(raw_phone).strip().replace("+", "") if raw_phone else "919999999999"
+                    clean_phone = str(raw_phone).strip() if raw_phone else "918072130833"
                     
                     msg = f"Hi, I'm interested in buying your {item.get('title')} from Neighborhood Hub."
                     whatsapp_url = f"https://wa.me/{clean_phone}?text={msg.replace(' ', '%20')}"
                     st.link_button("💬 Chat on WhatsApp", whatsapp_url, use_container_width=True)
 else:
-    st.info("No items match your filters or location settings.")
+    st.info("No active neighborhood promotions match your filter scopes currently.")
