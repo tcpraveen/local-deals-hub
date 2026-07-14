@@ -4,16 +4,19 @@ import streamlit as st
 from supabase import create_client, Client
 from streamlit_geolocation import streamlit_geolocation
 
-# 1. Page Configuration & Professional UI Styling
+# 1. Page Configuration & Premium Custom UI Theme Styling
 st.set_page_config(page_title="Neighborhood Deals Hub", layout="wide")
 
+# Expanded CSS to styling default widgets, buttons, and adjusting visual hierarchy
 st.markdown("""
     <style>
+    /* Styling global font color and page context */
     .report-link { color: #ff4b4b; font-weight: bold; font-size: 0.85rem; text-decoration: none; }
     .badge { background-color: #1e1e24; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; color: #00d2ff; font-weight: 600; margin-right: 5px; }
     .loc-badge { background-color: #2a2315; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; color: #ffaa00; font-weight: 600; margin-right: 5px; }
     .dist-badge { background-color: #1b2a3a; padding: 5px 10px; border-radius: 6px; font-size: 0.78rem; color: #00ffcc; font-weight: 600; }
     
+    /* Dynamic Metric Containers */
     div[data-testid="stMetric"] {
         background-color: #1a1c23;
         border: 1px solid #2d313f;
@@ -22,6 +25,7 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.2);
     }
     
+    /* 🔴 Fix 1 & 2: Beautiful Premium Card Layout with Clean Image Borders */
     .img-container {
         width: 100%;
         height: 200px;
@@ -32,11 +36,33 @@ st.markdown("""
         display: flex;
         align-items: center;
         justify-content: center;
+        border: 1px solid #2d313f;
     }
     .img-container img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+    }
+    .placeholder-icon {
+        font-size: 4rem;
+    }
+    
+    /* 🎨 Fix 2: Injecting Custom Styles over default input fields */
+    div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] select {
+        border: 1px solid #2d313f !important;
+        background-color: #14161d !important;
+        color: #ffffff !important;
+        border-radius: 8px !important;
+    }
+    
+    /* 📐 Fix 3: Elevating Primary Actions (Location Scan Feature Header) */
+    .hero-scanner-box {
+        background: linear-gradient(135deg, #1e1b4b 0%, #111827 100%);
+        border: 2px solid #4f46e5;
+        padding: 22px;
+        border-radius: 14px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+        margin-bottom: 15px;
     }
     
     .section-header {
@@ -51,8 +77,13 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Initialize Session States safely
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+if "merchant_id" not in st.session_state:
+    st.session_state.merchant_id = None
+if "merchant_name" not in st.session_state:
+    st.session_state.merchant_name = None
 
 # 2. Initialize Supabase Connection
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -64,40 +95,55 @@ else:
     st.error("Missing Supabase API keys in Render environment secrets.")
     st.stop()
 
-# 🧮 HAVERSINE FORMULA: Calculates real-world distance between two GPS coordinates
+# 🧮 HAVERSINE DISTANCE MATH FUNCTION
 def calculate_distance(lat1, lon1, lat2, lon2):
     if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
         return None
-    R = 6371.0  # Earth radius in kilometers
-    
+    R = 6371.0
     rad_lat1, rad_lon1 = math.radians(lat1), math.radians(lon1)
     rad_lat2, rad_lon2 = math.radians(lat2), math.radians(lon2)
-    
     dlat = rad_lat2 - rad_lat1
     dlon = rad_lon2 - rad_lon1
-    
     a = math.sin(dlat / 2)**2 + math.cos(rad_lat1) * math.cos(rad_lat2) * math.sin(dlon / 2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    
     return R * c
 
-# 3. Sidebar – Shopkeeper Portal
+# 3. Sidebar – Multi-Tenant Shopkeeper Portal
 with st.sidebar:
     st.markdown("## 🛍️ Shopkeeper Portal")
+    
     if not st.session_state.logged_in:
-        st.write("Enter Merchant Pin to Unlock Management Tools")
-        pin_input = st.text_input("Merchant PIN", type="password", label_visibility="collapsed")
-        if st.button("Login as Verified Merchant", use_container_width=True):
-            if pin_input == "123":
-                st.session_state.logged_in = True
-                st.success("Welcome back, Verified Merchant!")
-                st.rerun()
+        st.write("Sign in with your Shop Credentials")
+        
+        # 🔑 Fix 4: Clear explanatory labels and entry placeholders
+        input_shop_id = st.text_input("Shopkeeper ID / Username", placeholder="e.g., shop_01")
+        input_password = st.text_input("Merchant Password", type="password", placeholder="Enter account password")
+        
+        if st.button("Secure Login", use_container_width=True, type="primary"):
+            if input_shop_id.strip() and input_password.strip():
+                try:
+                    response = supabase.table("merchants").select("*").eq("shop_id", input_shop_id.strip()).execute()
+                    merchant_data = response.data
+                    
+                    if merchant_data and merchant_data[0].get("password") == input_password.strip():
+                        st.session_state.logged_in = True
+                        st.session_state.merchant_id = merchant_data[0].get("shop_id")
+                        st.session_state.merchant_name = merchant_data[0].get("shop_name")
+                        st.success(f"Logged in: {st.session_state.merchant_name}")
+                        st.rerun()
+                    else:
+                        st.error("Invalid Shop ID or Password.")
+                except Exception as login_err:
+                    st.error(f"Authentication Service Error: {login_err}")
             else:
-                st.error("Invalid PIN")
+                st.warning("Please enter both fields.")
     else:
-        st.success("🔒 Authenticated: Merchant Mode Active")
+        st.success(f"🔒 Active: {st.session_state.merchant_name}")
+        st.caption(f"ID Ref: `{st.session_state.merchant_id}`")
         if st.button("Log Out of Portal", use_container_width=True, type="secondary"):
             st.session_state.logged_in = False
+            st.session_state.merchant_id = None
+            st.session_state.merchant_name = None
             st.rerun()
 
 is_merchant = st.session_state.logged_in
@@ -106,18 +152,23 @@ is_merchant = st.session_state.logged_in
 st.markdown("# ⚡ Neighborhood Deals Hub")
 st.caption("Auto-Detecting Nearby Deals Safely and Privately")
 
-# 📍 AUTOMATIC GPS DETECTOR (Asks browser for location permission seamlessly)
-with st.container(border=True):
-    st.markdown("📡 **Live Smart Radius Active:** Click the button below to automatically scan for deals closest to you.")
-    location_data = streamlit_geolocation()
-    
+# 📐 Fix 3: Custom structured card container to draw immediate focus to the main location action
+st.markdown("""
+<div class='hero-scanner-box'>
+    <h3 style='margin:0 0 8px 0; color:#a5b4fc;'>📡 Tap to Scan Your Neighborhood</h3>
+    <p style='margin:0 0 12px 0; font-size:0.9rem; color:#9ca3af;'>Grant safe browser GPS access below to instantly organize listings by real walking distance.</p>
+</div>
+""", unsafe_allow_html=True)
+
+location_data = streamlit_geolocation()
 user_lat = location_data.get("latitude")
 user_lon = location_data.get("longitude")
 
 if user_lat and user_lon:
     st.success(f"📍 Location automatically locked: Coordinates ({user_lat:.4f}, {user_lon:.4f})")
 else:
-    st.info("💡 Pro-Tip: Grant browser location permission above to sort items automatically by closest walking distance!")
+    # Made notice less visually heavy than main scanning banner
+    st.caption("💡 Tip: Enabling location permissions prioritizes active promotions right down your block.")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -128,40 +179,40 @@ except Exception as e:
     st.error(f"Database Error: {e}")
     items = []
 
-# 📥 MERCHANT FORM FOR ADDING ITEMS
+# 📥 MERCHANT SECURE SUBMISSION FORM
 if is_merchant:
-    st.markdown("<div class='section-header'>📥 Add New Item to Marketplace</div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='section-header'>📥 Add New Item from {st.session_state.merchant_name}</div>", unsafe_allow_html=True)
     with st.container(border=True):
         with st.form(key="add_item_form", clear_on_submit=True):
             col_in1, col_in2, col_in3 = st.columns([2, 1, 1])
             with col_in1:
-                new_title = st.text_input("Product Title*", placeholder="e.g., iPhone 15 Pro Max")
+                new_title = st.text_input("Product Title*", placeholder="e.g., Fresh Sourdough Bread")
             with col_in2:
-                new_cat = st.selectbox("Product Category*", ["Electronics", "General", "Vehicles", "Housing"])
+                new_cat = st.selectbox("Product Category*", ["General", "Electronics", "Vehicles", "Housing"])
             with col_in3:
-                new_price = st.number_input("Price (₹)*", min_value=0, step=500, value=0)
+                new_price = st.number_input("Price (₹)*", min_value=0, step=10, value=0)
                 
             col_in4, col_in5 = st.columns([2, 2])
             with col_in4:
-                new_desc = st.text_input("Description*", placeholder="Condition, details, etc...")
+                new_desc = st.text_input("Description*", placeholder="Condition, discount specifics...")
             with col_in5:
-                new_loc = st.text_input("City/Area Label*", placeholder="e.g., North Authoor, Chennai")
+                new_loc = st.text_input("City/Area Label*", placeholder="e.g., North Authoor, Coimbatore")
                 
-            # New Coordinate Fields for Merchants
             col_gps1, col_gps2 = st.columns(2)
             with col_gps1:
-                item_lat_input = st.number_input("Item Latitude (Decimal)*", format="%.6f", value=13.0827, step=0.0001)
+                item_lat_input = st.number_input("Item Latitude (Decimal)*", format="%.6f", value=11.0168, step=0.0001)
             with col_gps2:
-                item_lon_input = st.number_input("Item Longitude (Decimal)*", format="%.6f", value=80.2707, step=0.0001)
+                item_lon_input = st.number_input("Item Longitude (Decimal)*", format="%.6f", value=76.9558, step=0.0001)
                 
             col_in6, col_in7 = st.columns([2, 2])
             with col_in6:
-                new_image = st.text_input("Product Photo URL (Optional)", placeholder="https://example.com/image.jpg")
+                new_image = st.text_input("Product Photo URL (Optional)")
             with col_in7:
-                new_payment = st.text_input("Payment Gateway URL (Optional)", placeholder="Stripe/Razorpay link...")
+                new_payment = st.text_input("Payment Link (Optional)")
             
             st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
             submit_new_item = st.form_submit_button("🚀 Deploy Listing Live", use_container_width=True, type="primary")
+            
             if submit_new_item:
                 if new_title.strip() and new_desc.strip() and new_price > 0:
                     try:
@@ -172,7 +223,8 @@ if is_merchant:
                             "price": new_price,
                             "location": new_loc,
                             "latitude": item_lat_input,
-                            "longitude": item_lon_input
+                            "longitude": item_lon_input,
+                            "merchant_id": st.session_state.merchant_id 
                         }
                         if new_image.strip():
                             payload["image_url"] = new_image.strip()
@@ -201,12 +253,11 @@ with st.container(border=True):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 6. Processing Distance Calculations & Filtering Logics
+# 6. Processing Distance Calculations & Filtering
 filtered_items = []
 for i in items:
     search_match = (search_query.lower() in str(i.get('title', '')).lower() or 
                     search_query.lower() in str(i.get('description', '')).lower())
-    
     cat_db = i.get('category')
     cat_match = (category == "All Categories" or (cat_db and category.lower() in str(cat_db).lower()))
     
@@ -216,16 +267,14 @@ for i in items:
         item_price = 0
     price_match = (item_price <= max_budget)
     
-    # Calculate live distance if user GPS is available
     i_lat = i.get('latitude')
     i_lon = i.get('longitude')
     computed_dist = calculate_distance(user_lat, user_lon, i_lat, i_lon)
-    i['calculated_distance'] = computed_dist  # Store inside item dict temporarily
+    i['calculated_distance'] = computed_dist
     
     if search_match and cat_match and price_match:
         filtered_items.append(i)
 
-# 📊 AUTO-SORT BY DISTANCE: Closest items go to the top if user location is found!
 if user_lat and user_lon:
     filtered_items.sort(key=lambda x: x['calculated_distance'] if x['calculated_distance'] is not None else float('inf'))
 
@@ -236,16 +285,30 @@ if filtered_items:
         with cols[idx % 3]:
             with st.container(border=True):
                 img_url = item.get('image_url') or item.get('photo_url')
-                if not img_url:
-                    img_url = "https://placehold.co/600x400/1a1c23/fafafa?text=No+Image+Provided"
                 
-                st.markdown(f"""
-                    <div class='img-container'>
-                        <img src='{img_url}' alt='Product Image'>
-                    </div>
-                """, unsafe_allow_html=True)
+                # 🔴 Fix 1: Dynamically assign beautiful graphic placeholders per category type
+                if img_url and img_url.strip():
+                    st.markdown(f"""
+                        <div class='img-container'>
+                            <img src='{img_url}' alt='Product Image'>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    cat_type = str(item.get('category', 'General')).lower()
+                    placeholder_emoji = "📦"
+                    if "elect" in cat_type:
+                        placeholder_emoji = "📱"
+                    elif "hous" in cat_type:
+                        placeholder_emoji = "🏠"
+                    elif "vehic" in cat_type:
+                        placeholder_emoji = "🚗"
+                    
+                    st.markdown(f"""
+                        <div class='img-container'>
+                            <div class='placeholder-icon'>{placeholder_emoji}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
                 
-                # Show Live Distance Badges dynamically
                 dist_value = item.get('calculated_distance')
                 dist_html = f"<span class='dist-badge'>⚡ {dist_value:.1f} km away</span>" if dist_value is not None else ""
                 
@@ -262,22 +325,11 @@ if filtered_items:
                 st.write(item.get('description', ''))
                 
                 item_id = item['id']
-                try:
-                    reviews_resp = supabase.table("feedback").select("*").eq("item_id", item_id).execute()
-                    reviews = reviews_resp.data
-                except Exception:
-                    reviews = []
                 
-                if reviews:
-                    avg_rating = sum([r['rating'] for r in reviews]) / len(reviews)
-                    st.markdown(f"**Rating:** {'⭐' * int(round(avg_rating))} ({avg_rating:.1f}/5)")
-                else:
-                    st.markdown("*No ratings yet.*")
-                
-                if is_merchant:
+                if is_merchant and item.get('merchant_id') == st.session_state.merchant_id:
                     st.markdown("---")
-                    st.caption("🛠️ Management Actions")
-                    if st.button(f"🗑️ Delete Listing", key=f"del_{item_id}", type="primary", use_container_width=True):
+                    st.caption("🛠️ Shop Owner Management")
+                    if st.button(f"🗑️ Remove Listing", key=f"del_{item_id}", type="primary", use_container_width=True):
                         try:
                             supabase.table("items").delete().eq("id", item_id).execute()
                             st.success("Listing removed!")
@@ -285,39 +337,28 @@ if filtered_items:
                         except Exception as err:
                             st.error(f"Error: {err}")
                 else:
-                    st.markdown("<div style='margin-top: 10px; margin-bottom: 10px;'><a class='report-link' href='#'>⚠️ Report Damaged/Fake</a></div>", unsafe_allow_html=True)
+                    st.markdown("<div style='margin-top: 10px; margin-bottom: 10px;'><a class='report-link' href='#'>⚠️ Report Listing</a></div>", unsafe_allow_html=True)
                     
-                    with st.expander("📝 Write a Customer Review"):
+                    with st.expander("📝 Write a Review"):
                         with st.form(key=f"review_{item_id}", clear_on_submit=True):
                             user_rating = st.selectbox("Select Stars", [5, 4, 3, 2, 1], key=f"s_{item_id}")
-                            user_comment = st.text_input("Comment...", placeholder="e.g., Great condition!", key=f"c_{item_id}")
-                            if st.form_submit_button("Submit Review"):
+                            user_comment = st.text_input("Comment...", key=f"c_{item_id}")
+                            if st.form_submit_button("Submit"):
                                 if user_comment.strip():
                                     try:
-                                        supabase.table("feedback").insert({
-                                            "item_id": item_id,
-                                            "rating": user_rating,
-                                            "comment": user_comment
-                                        }).execute()
+                                        supabase.table("feedback").insert({"item_id": item_id, "rating": user_rating, "comment": user_comment}).execute()
                                         st.success("Submitted!")
                                         st.rerun()
                                     except Exception as err:
-                                        st.error(f"Error saving review: {err}")
-                                else:
-                                    st.warning("Please leave a comment text.")
-                    
-                    if reviews:
-                        with st.expander("💬 View Recent Comments"):
-                            for r in reviews[-2:]:
-                                st.caption(f"{'⭐'*r['rating']} – \"{r['comment']}\"")
+                                        st.error(f"Error: {err}")
                     
                     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
                     pay_url = item.get('payment_url')
                     if pay_url:
                         st.link_button("💳 Instant Buy / Pay Now", pay_url, use_container_width=True, type="primary")
                     
-                    msg = f"Hi, I'm interested in buying your {item.get('title')} listed for ₹{item.get('price')}."
+                    msg = f"Hi, I'm interested in buying your {item.get('title')}."
                     whatsapp_url = f"https://wa.me/919999999999?text={msg.replace(' ', '%20')}"
                     st.link_button("💬 Chat on WhatsApp", whatsapp_url, use_container_width=True)
 else:
-    st.info("No items match your filter settings.")
+    st.info("No items match your filters or location settings.")
