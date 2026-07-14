@@ -88,7 +88,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize Session States
+# Initialize Session States safely
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "merchant_id" not in st.session_state:
@@ -96,7 +96,7 @@ if "merchant_id" not in st.session_state:
 if "merchant_name" not in st.session_state:
     st.session_state.merchant_name = None
 
-# Initialize Supabase Connection
+# 2. Initialize Supabase Connection
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
@@ -112,7 +112,7 @@ def clean_listing_text(text):
         return ""
     cleaned = re.sub(r'\[\s*URGENT\s*DEAL\s*\]', '', text, flags=re.IGNORECASE)
     cleaned = re.sub(r'URGENT', '', cleaned, flags=re.IGNORECASE)
-    cleaned = re.sub(r'\|VERIFIED\|', '', cleaned, flags=re.IGNORECASE)  # Strip legacy hardcoded text labels
+    cleaned = re.sub(r'\|VERIFIED\|', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'[🚨🔴🔥🛑❗❗]', '', cleaned)
     return cleaned.strip()
 
@@ -129,7 +129,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
-# Sidebar Portal
+# 3. Sidebar – Multi-Tenant Shopkeeper Portal
 with st.sidebar:
     st.markdown("## 🛍️ Shopkeeper Portal")
     
@@ -167,7 +167,7 @@ with st.sidebar:
 
 is_merchant = st.session_state.logged_in
 
-# Primary Layout Header Banner
+# 4. Main Header Banner Layout
 st.markdown("# ⚡ Neighborhood Deals Hub")
 st.caption("Auto-Detecting Nearby Deals Safely and Privately")
 
@@ -189,7 +189,7 @@ else:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Fetch data pipelines
+# Fetch data pipelines from Supabase
 try:
     items_response = supabase.table("items").select("*").execute()
     items = items_response.data
@@ -201,7 +201,7 @@ except Exception as e:
     items = []
     merchant_directory = {}
 
-# SECURE MERCHANT FORM INTERFACE
+# 5. SECURE MERCHANT FORM INTERFACE
 if is_merchant:
     st.markdown(f"<div class='section-header'>📥 Add New Item from {st.session_state.merchant_name}</div>", unsafe_allow_html=True)
     with st.container(border=True):
@@ -267,7 +267,7 @@ if is_merchant:
                     st.warning("Please fill out all required fields.")
     st.markdown("<br>", unsafe_allow_html=True)
 
-# 5. Search Panel & Filter System
+# 6. Consumer Searching Panel & Filter System
 st.markdown("<div class='section-header'>🔍 Filter Controls</div>", unsafe_allow_html=True)
 with st.container(border=True):
     col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
@@ -280,10 +280,9 @@ with st.container(border=True):
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 6. Content Sanitization & Distance Match Processing
+# Content Sanitization & Proximity Sorting Engine
 filtered_items = []
 for i in items:
-    # On-the-fly filtering cleanups to strip manual legacy verified text inputs
     t_clean = clean_listing_text(i.get('title', ''))
     d_clean = clean_listing_text(i.get('description', ''))
     c_clean = clean_listing_text(i.get('category', 'General'))
@@ -314,7 +313,7 @@ for i in items:
 if user_lat and user_lon:
     filtered_items.sort(key=lambda x: x['calculated_distance'] if x['calculated_distance'] is not None else float('inf'))
 
-# 7. Grid Card Visual Presentation Renderer
+# 7. Dynamic Card Rendering Grid
 if filtered_items:
     cols = st.columns(3)
     for idx, item in enumerate(filtered_items):
@@ -403,6 +402,28 @@ if filtered_items:
                     
                     msg = f"Hi, I'm interested in buying your {item.get('title')} from Neighborhood Hub."
                     whatsapp_url = f"https://wa.me/{clean_phone}?text={msg.replace(' ', '%20')}"
-                    st.link_button("💬 Chat on WhatsApp", whatsapp_url, use_container_width=True)
+                    
+                    # Cleaned direct anchor button layout to bypass hover overlap bugs
+                    st.markdown(f"""
+                        <a href="{whatsapp_url}" target="_blank" style="
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 100%;
+                            background-color: transparent;
+                            color: #ffffff;
+                            border: 1px solid #2d313f;
+                            padding: 8px 16px;
+                            border-radius: 8px;
+                            text-decoration: none;
+                            font-size: 0.9rem;
+                            font-weight: 500;
+                            transition: border-color 0.25s;
+                            box-sizing: border-box;
+                            margin-top: 8px;
+                        " onmouseover="this.style.borderColor='#4f46e5'" onmouseout="this.style.borderColor='#2d313f'">
+                            💬 Chat on WhatsApp
+                        </a>
+                    """, unsafe_allow_html=True)
 else:
     st.info("No active neighborhood promotions match your filter scopes currently.")
