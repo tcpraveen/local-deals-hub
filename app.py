@@ -212,7 +212,6 @@ user_lon = location_data.get("longitude")
 
 with st.container():
     if user_lat and user_lon:
-        # Custom display once coordinates are successfully mapped
         st.markdown(f"""
         <div class='hero-scanner-box'>
             <h3 style='margin:0 0 6px 0; color:#34d399;'>📍 Location Scanner Connected</h3>
@@ -239,7 +238,6 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 if is_merchant and merchant_menu == "📊 Dashboard Analytics":
     st.markdown(f"<div class='section-header'>📊 Performance Metrics for {st.session_state.merchant_name}</div>", unsafe_allow_html=True)
     
-    # Calculate quick dynamic metrics from actual array records
     total_deals_count = len(items)
     shop_partners_count = len(merchant_directory)
     
@@ -387,9 +385,15 @@ if filtered_items:
                     """, unsafe_allow_html=True)
                 else:
                     cat_type = str(item.get('category', 'General')).lower()
+                    item_title = str(item.get('title', '')).lower()
+                    
                     placeholder_emoji = "📦"
                     if "elect" in cat_type:
-                        placeholder_emoji = "📱"
+                        # 💻 Smart conditional: checks listing text parameters directly to filter computers out
+                        if any(keyword in item_title for keyword in ["mac", "macbook", "laptop", "pc", "computer"]):
+                            placeholder_emoji = "💻"
+                        else:
+                            placeholder_emoji = "📱"
                     elif "hous" in cat_type:
                         placeholder_emoji = "🏠"
                     elif "vehic" in cat_type:
