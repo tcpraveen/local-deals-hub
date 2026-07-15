@@ -388,16 +388,35 @@ if filtered_items:
                     item_title = str(item.get('title', '')).lower()
                     
                     placeholder_emoji = "📦"
+                    
+                    # 📱 Electronics Category Checks
                     if "elect" in cat_type:
-                        # 💻 Smart conditional: checks listing text parameters directly to filter computers out
-                        if any(keyword in item_title for keyword in ["mac", "macbook", "laptop", "pc", "computer"]):
+                        if any(k in item_title for k in ["tv", "television", "display", "monitor", "screen"]):
+                            placeholder_emoji = "📺"
+                        elif any(k in item_title for k in ["mac", "macbook", "laptop", "pc", "computer"]):
                             placeholder_emoji = "💻"
+                        elif any(k in item_title for k in ["watch", "smartwatch", "wearable"]):
+                            placeholder_emoji = "⌚"
+                        elif any(k in item_title for k in ["fridge", "refrigerator", "ac", "cooler", "washing"]):
+                            placeholder_emoji = "🔌"
                         else:
                             placeholder_emoji = "📱"
+                            
+                    # 🏠 Housing / Furniture Category Checks
                     elif "hous" in cat_type:
-                        placeholder_emoji = "🏠"
+                        if any(k in item_title for k in ["sofa", "chair", "table", "bed", "furniture", "desk"]):
+                            placeholder_emoji = "🪑"
+                        else:
+                            placeholder_emoji = "🏠"
+                            
+                    # 🚗 Vehicles Category Checks
                     elif "vehic" in cat_type:
-                        placeholder_emoji = "🚗"
+                        if any(k in item_title for k in ["bike", "motorcycle", "scooter", "activa", "ktm"]):
+                            placeholder_emoji = "🏍️"
+                        elif any(k in item_title for k in ["cycle", "bicycle"]):
+                            placeholder_emoji = "🚲"
+                        else:
+                            placeholder_emoji = "🚗"
                     
                     st.markdown(f"""
                         <div class='img-container'>
