@@ -135,8 +135,8 @@ if "tracked_view" not in st.session_state:
 
 def clean_listing_text(text):
     if not text: return ""
-    # Strip away layout artifacts if they exist in legacy records
-    cleaned = re.sub(r'<span class=.*?>.*?</span>', '', text)
+    # Complete text defense: Strip out any raw html code segments completely
+    cleaned = re.sub(r'<[^>]*>', '', str(text))
     cleaned = re.sub(r'\[\s*URGENT\s*DEAL\s*\]', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'URGENT', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\|VERIFIED\|', '', cleaned, flags=re.IGNORECASE)
@@ -204,7 +204,7 @@ with st.sidebar:
         fav_items = [item for item in items if item.get('id') in st.session_state.favorites]
         for f_item in fav_items:
             col_fav1, col_fav2 = st.columns([4, 1])
-            with col_fav1: st.markdown(f"**{f_item.get('title')}** (₹{f_item.get('price')})")
+            with col_fav1: st.markdown(f"**{clean_listing_text(f_item.get('title'))}** (₹{f_item.get('price')})")
             with col_fav2:
                 if st.button("❌", key=f"rm_fav_{f_item.get('id')}"):
                     st.session_state.favorites.remove(f_item.get('id'))
@@ -250,7 +250,7 @@ if is_merchant and merchant_menu == "📥 Deploy New Listing":
             new_price = c3.number_input("Price (₹)*", min_value=0, step=10, value=0)
             c4, c5 = st.columns(2)
             new_desc = c4.text_input("Description Content*", placeholder="Condition, time frames...")
-            new_loc = c5.text_input("City/Area Label*", placeholder="e.g., North Authoor, Thoothukudi")
+            new_loc = c5.text_input("City/Area Label*", placeholder="e.g., Thoothukudi")
             c6, c7 = st.columns(2)
             item_lat_input = c6.number_input("Item Latitude (Decimal)*", format="%.6f", value=8.8050, step=0.0001)
             item_lon_input = c7.number_input("Item Longitude (Decimal)*", format="%.6f", value=78.1519, step=0.0001)
@@ -267,7 +267,7 @@ if is_merchant and merchant_menu == "📥 Deploy New Listing":
                             final_image_url = supabase.storage.from_("product-images").get_public_url(f_name)
                         except Exception: pass
                     try:
-                        payload = {"title": clean_listing_text(new_title), "description": clean_listing_text(new_desc), "category": new_cat, "price": new_price, "location": new_loc if new_loc.strip() else "Local Area", "latitude": item_lat_input, "longitude": item_lon_input, "merchant_id": st.session_state.merchant_id}
+                        payload = {"title": clean_listing_text(new_title), "description": clean_listing_text(new_desc), "category": new_cat, "price": new_price, "location": clean_listing_text(new_loc) if new_loc.strip() else "Local Area", "latitude": item_lat_input, "longitude": item_lon_input, "merchant_id": st.session_state.merchant_id}
                         if final_image_url: payload["image_url"] = final_image_url
                         if new_payment.strip(): payload["payment_url"] = new_payment.strip()
                         supabase.table("items").insert(payload).execute()
@@ -290,13 +290,13 @@ if is_merchant and merchant_menu == "✏️ Edit/Manage Listings":
                     e_cat = st.selectbox("Category", ["General", "Electronics", "Vehicles", "Housing"], index=["General", "Electronics", "Vehicles", "Housing"].index(item_to_edit.get('category', 'General')))
                     e_price = st.number_input("Price (₹)", value=int(item_to_edit.get('price', 0)))
                     e_desc = st.text_input("Description", value=clean_listing_text(item_to_edit.get('description')))
-                    e_loc = st.text_input("City/Area Label", value=item_to_edit.get('location'))
+                    e_loc = st.text_input("City/Area Label", value=clean_listing_text(item_to_edit.get('location')))
                     e_lat = st.number_input("Latitude (Decimal)", format="%.6f", value=float(item_to_edit.get('latitude', 8.8050)))
                     e_lon = st.number_input("Longitude (Decimal)", format="%.6f", value=float(item_to_edit.get('longitude', 78.1519)))
                     e_pay = st.text_input("Payment Link", value=item_to_edit.get('payment_url', ''))
                     if st.form_submit_button("💾 Save Changes to Web Database", use_container_width=True, type="primary"):
                         try:
-                            update_payload = {"title": clean_listing_text(e_title), "category": e_cat, "price": e_price, "description": clean_listing_text(e_desc), "location": e_loc if e_loc.strip() else "Local Area", "latitude": e_lat, "longitude": e_lon, "payment_url": e_pay}
+                            update_payload = {"title": clean_listing_text(e_title), "category": e_cat, "price": e_price, "description": clean_listing_text(e_desc), "location": clean_listing_text(e_loc) if e_loc.strip() else "Local Area", "latitude": e_lat, "longitude": e_lon, "payment_url": e_pay}
                             supabase.table("items").update(update_payload).eq("id", item_to_edit.get('id')).execute()
                             st.success("Database parameters modified successfully live!")
                             st.rerun()
@@ -322,15 +322,25 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 # 9. Filter Logic Loop
 filtered_items, map_data_list = [], []
 for i in items:
-    t_clean, d_clean, c_clean = clean_listing_text(i.get('title', '')), clean_listing_text(i.get('description', '')), clean_listing_text(i.get('category', 'General'))
+    t_clean = clean_listing_text(i.get('title', ''))
+    d_clean = clean_listing_text(i.get('description', ''))
+    c_clean = clean_listing_text(i.get('category', 'General'))
+    l_clean = clean_listing_text(i.get('location', 'Local Area'))
+    
     s_match = (search_query.lower() in t_clean.lower() or search_query.lower() in d_clean.lower())
     c_match = (category == "All Categories" or (category.lower() in c_clean.lower()))
     try: price_val = float(i.get('price', 0))
     except: price_val = 0
+    
     i_lat, i_lon = i.get('latitude'), i.get('longitude')
     i['calculated_distance'] = calculate_distance(user_lat, user_lon, i_lat, i_lon)
-    i['title'], i['description'], i['category'] = t_clean, d_clean, c_clean
-    if not i.get('location') or i.get('location') == "None": i['location'] = "Local Area"
+    
+    # Re-save completely vetted strings back to the rendering iteration loop dictionary
+    i['title'] = t_clean
+    i['description'] = d_clean
+    i['category'] = c_clean
+    i['location'] = l_clean if l_clean else "Local Area"
+    
     if s_match and c_match and (price_val <= max_budget):
         filtered_items.append(i)
         if i_lat is not None and i_lon is not None: map_data_list.append({"latitude": float(i_lat), "longitude": float(i_lon)})
@@ -372,7 +382,6 @@ if filtered_items:
                 is_verified = associated_merchant in verified_merchants and associated_merchant is not None
                 v_html = f"<span class='verified-badge'>✨ Verified Shop</span>" if is_verified else ""
                 
-                # Dynamic Flex Row Injection Shield
                 st.markdown(f"""
                     <div class='badge-container'>
                         <span class='badge'>🏷️ {item.get('category', 'General')}</span>
