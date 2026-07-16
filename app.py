@@ -13,12 +13,20 @@ st.markdown("""
     <style>
     /* Global Styles & Micro-Animations */
     .report-link { color: #ff4b4b; font-weight: bold; font-size: 0.85rem; text-decoration: none; }
-    .badge { background-color: #1e1e24; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #00d2ff; font-weight: 600; margin-right: 5px; }
-    .loc-badge { background-color: #2a2315; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #ffaa00; font-weight: 600; margin-right: 5px; }
-    .dist-badge { background-color: #1b2a3a; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #00ffcc; font-weight: 600; margin-right: 5px; }
-    .verified-badge { background-color: #064e3b; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #34d399; font-weight: 700; margin-right: 5px; border: 1px solid #059669; }
     
-    /* Enlarge Typography Labels & Soften Placeholders */
+    /* Uniform Badge Alignment Framework */
+    .badge-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 12px;
+        align-items: center;
+    }
+    .badge { background-color: #1e1e24; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #00d2ff; font-weight: 600; display: inline-block; }
+    .loc-badge { background-color: #2a2315; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #ffaa00; font-weight: 600; display: inline-block; }
+    .dist-badge { background-color: #1b2a3a; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #00ffcc; font-weight: 600; display: inline-block; }
+    .verified-badge { background-color: #064e3b; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #34d399; font-weight: 700; border: 1px solid #059669; display: inline-block; }
+    
     label[data-testid="stWidgetLabel"] p {
         font-size: 1.05rem !important;
         font-weight: 600 !important;
@@ -142,28 +150,24 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = math.sin(dlat / 2)**2 + math.cos(rad_lat1) * math.cos(rad_lat2) * math.sin(dlon / 2)**2
     return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)))
 
-# Fetch primary databases early
+# Fetch databases
 try:
     items_response = supabase.table("items").select("*").execute()
     items = items_response.data
-    
-    # Secure Verification Engine Fix: Fetch phone number AND verification status explicitly
     merchants_response = supabase.table("merchants").select("shop_id, phone_number, is_verified").execute()
     merchant_directory = {}
     verified_merchants = set()
-    
     if merchants_response.data:
         for m in merchants_response.data:
             merchant_directory[m['shop_id']] = m.get('phone_number')
             if m.get('is_verified') is True:
                 verified_merchants.add(m['shop_id'])
-                
     analytics_response = supabase.table("analytics").select("*").execute()
     analytics_data = analytics_response.data if analytics_response.data else []
 except Exception as e:
     items, merchant_directory, verified_merchants, analytics_data = [], {}, set(), []
 
-# 3. Sidebar Portal Control Console
+# 3. Sidebar Console
 with st.sidebar:
     st.markdown("## 🛍️ Shopkeeper Portal")
     if not st.session_state.logged_in:
@@ -274,7 +278,6 @@ if is_merchant and merchant_menu == "📥 Deploy New Listing":
 if is_merchant and merchant_menu == "✏️ Edit/Manage Listings":
     st.markdown(f"<div class='section-header'>✏️ Edit and Update Active Web Listings</div>", unsafe_allow_html=True)
     my_items = [i for i in items if i.get('merchant_id') == st.session_state.merchant_id]
-    
     if my_items:
         item_to_edit = st.selectbox("Select a listing to edit:", my_items, format_func=lambda x: f"{x.get('title')} (₹{x.get('price')})")
         if item_to_edit:
@@ -289,7 +292,6 @@ if is_merchant and merchant_menu == "✏️ Edit/Manage Listings":
                     e_lat = st.number_input("Latitude (Decimal)", format="%.6f", value=float(item_to_edit.get('latitude', 8.8050)))
                     e_lon = st.number_input("Longitude (Decimal)", format="%.6f", value=float(item_to_edit.get('longitude', 78.1519)))
                     e_pay = st.text_input("Payment Link", value=item_to_edit.get('payment_url', ''))
-                    
                     if st.form_submit_button("💾 Save Changes to Web Database", use_container_width=True, type="primary"):
                         try:
                             update_payload = {"title": clean_listing_text(e_title), "category": e_cat, "price": e_price, "description": clean_listing_text(e_desc), "location": e_loc if e_loc.strip() else "Local Area", "latitude": e_lat, "longitude": e_lon, "payment_url": e_pay}
@@ -323,12 +325,10 @@ for i in items:
     c_match = (category == "All Categories" or (category.lower() in c_clean.lower()))
     try: price_val = float(i.get('price', 0))
     except: price_val = 0
-    
     i_lat, i_lon = i.get('latitude'), i.get('longitude')
     i['calculated_distance'] = calculate_distance(user_lat, user_lon, i_lat, i_lon)
     i['title'], i['description'], i['category'] = t_clean, d_clean, c_clean
     if not i.get('location') or i.get('location') == "None": i['location'] = "Local Area"
-        
     if s_match and c_match and (price_val <= max_budget):
         filtered_items.append(i)
         if i_lat is not None and i_lon is not None: map_data_list.append({"latitude": float(i_lat), "longitude": float(i_lon)})
@@ -366,12 +366,20 @@ if filtered_items:
                 dist_v = item.get('calculated_distance')
                 dist_html = f"<span class='dist-badge'>⚡ {dist_v:.1f} km away</span>" if dist_v is not None else ""
                 
-                # Vetted Trust Engine Check: Render verification badge ONLY if explicitly approved in verified_merchants set
                 associated_merchant = item.get('merchant_id')
                 is_verified = associated_merchant in verified_merchants and associated_merchant is not None
                 v_html = "<span class='verified-badge'>✨ Verified Shop</span>" if is_verified else ""
                 
-                st.markdown(f"<div style='margin-bottom: 8px;'><span class='badge'>🏷️ {item.get('category', 'General')}</span><span class='loc-badge'>📍 {item.get('location', 'Local Area')}</span>{dist_html}{v_html}</div>", unsafe_allow_html=True)
+                # Fixed Layout Order inside the flex block
+                st.markdown(f"""
+                    <div class='badge-container'>
+                        <span class='badge'>🏷️ {item.get('category', 'General')}</span>
+                        <span class='loc-badge'>📍 {item.get('location', 'Local Area')}</span>
+                        {dist_html}
+                        {v_html}
+                    </div>
+                """, unsafe_allow_html=True)
+                
                 st.markdown(f"<div class='product-title'>{item.get('title', 'No Title')}</div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='product-price'>₹{float(item.get('price', 0)):,.2f}</div>", unsafe_allow_html=True)
                 st.write(item.get('description', ''))
