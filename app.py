@@ -260,7 +260,7 @@ if is_merchant and merchant_menu == "📥 Deploy New Listing":
                     except Exception as err: st.error(f"Error: {err}")
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-# 🌟 NEW FEATURE: Web Editor Interface Engine Tier
+# 7. Edit/Manage Listings
 if is_merchant and merchant_menu == "✏️ Edit/Manage Listings":
     st.markdown(f"<div class='section-header'>✏️ Edit and Update Active Web Listings</div>", unsafe_allow_html=True)
     my_items = [i for i in items if i.get('merchant_id') == st.session_state.merchant_id]
@@ -295,7 +295,7 @@ if is_merchant and merchant_menu == "⚙️ Shop Settings":
     st.info("Profiles operational.")
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-# 7. Core Consumer Filter Section
+# 8. Core Consumer Filter Section
 st.markdown("<div class='section-header'>🔍 Filter Controls</div>", unsafe_allow_html=True)
 with st.container(border=True):
     col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
@@ -305,8 +305,100 @@ with st.container(border=True):
 
 st.markdown("<br><br>", unsafe_allow_html=True)
 
-# 8. Filter Logic Loop
+# 9. Filter Logic Loop
 filtered_items, map_data_list = [], []
 for i in items:
     t_clean, d_clean, c_clean = clean_listing_text(i.get('title', '')), clean_listing_text(i.get('description', '')), clean_listing_text(i.get('category', 'General'))
-    s_match = (search_query.lower() in t_clean.lower() or search_query.lower() in d_clean
+    s_match = (search_query.lower() in t_clean.lower() or search_query.lower() in d_clean.lower())
+    c_match = (category == "All Categories" or (category.lower() in c_clean.lower()))
+    try: price_val = float(i.get('price', 0))
+    except: price_val = 0
+    
+    i_lat, i_lon = i.get('latitude'), i.get('longitude')
+    i['calculated_distance'] = calculate_distance(user_lat, user_lon, i_lat, i_lon)
+    i['title'], i['description'], i['category'] = t_clean, d_clean, c_clean
+    if not i.get('location') or i.get('location') == "None": i['location'] = "Local Area"
+        
+    if s_match and c_match and (price_val <= max_budget):
+        filtered_items.append(i)
+        if i_lat is not None and i_lon is not None: map_data_list.append({"latitude": float(i_lat), "longitude": float(i_lon)})
+
+if user_lat and user_lon:
+    filtered_items.sort(key=lambda x: x['calculated_distance'] if x['calculated_distance'] is not None else float('inf'))
+
+if map_data_list:
+    st.markdown("### 🗺️ Neighborhood Deal Map")
+    st.map(pd.DataFrame(map_data_list), use_container_width=True)
+    st.markdown("<br><br>", unsafe_allow_html=True)
+
+# 10. Card Presentation Layout Rendering
+if filtered_items:
+    cols = st.columns(3)
+    for idx, item in enumerate(filtered_items):
+        with cols[idx % 3]:
+            with st.container(border=True):
+                img_url = item.get('image_url') or item.get('photo_url')
+                if img_url and img_url.strip() and img_url != "None":
+                    st.markdown(f"<div class='img-container'><img src='{img_url}' alt='Product Image'></div>", unsafe_allow_html=True)
+                else:
+                    cat_type, item_title = str(item.get('category', 'General')).lower(), str(item.get('title', '')).lower()
+                    emoji = "📦"
+                    if "elect" in cat_type:
+                        if any(k in item_title for k in ["tv", "television", "display", "monitor"]): emoji = "📺"
+                        elif any(k in item_title for k in ["mac", "book", "laptop", "pc"]): emoji = "💻"
+                        elif any(k in item_title for k in ["watch", "smartwatch"]): emoji = "⌚"
+                        elif any(k in item_title for k in ["fridge", "ac", "cooler"]): emoji = "🔌"
+                        else: emoji = "📱"
+                    elif "hous" in cat_type: emoji = "🪑" if any(k in item_title for k in ["sofa", "chair", "table"]) else "🏠"
+                    elif "vehic" in cat_type: emoji = "🏍️" if any(k in item_title for k in ["bike", "scooter"]) else "🚗"
+                    st.markdown(f"<div class='img-container'><div class='placeholder-icon'>{emoji}</div></div>", unsafe_allow_html=True)
+                
+                dist_v = item.get('calculated_distance')
+                dist_html = f"<span class='dist-badge'>⚡ {dist_v:.1f} km away</span>" if dist_v is not None else ""
+                is_verified = item.get('merchant_id') in merchant_directory and item.get('merchant_id') is not None
+                v_html = "<span class='verified-badge'>✨ Verified Shop</span>" if is_verified else ""
+                
+                st.markdown(f"<div style='margin-bottom: 8px;'><span class='badge'>🏷️ {item.get('category', 'General')}</span><span class='loc-badge'>📍 {item.get('location', 'Local Area')}</span>{dist_html}{v_html}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='product-title'>{item.get('title', 'No Title')}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='product-price'>₹{float(item.get('price', 0)):,.2f}</div>", unsafe_allow_html=True)
+                st.write(item.get('description', ''))
+                
+                item_id = item['id']
+                is_fav = item_id in st.session_state.favorites
+                if st.button("❤️ Bookmarked" if is_fav else "🤍 Favorite Deal", key=f"fav_{item_id}", use_container_width=True):
+                    if is_fav: st.session_state.favorites.remove(item_id)
+                    else: st.session_state.favorites.append(item_id)
+                    st.rerun()
+                
+                if is_merchant and item.get('merchant_id') == st.session_state.merchant_id:
+                    st.markdown("---")
+                    if st.button(f"🗑️ Remove Listing", key=f"del_{item_id}", type="primary", use_container_width=True):
+                        try:
+                            supabase.table("items").delete().eq("id", item_id).execute()
+                            st.success("Listing cleared!")
+                            st.rerun()
+                        except Exception as err: st.error(f"Error: {err}")
+                else:
+                    st.markdown("<div style='margin-top: 12px; margin-bottom: 12px;'><a class='report-link' href='#'>⚠️ Report Listing</a></div>", unsafe_allow_html=True)
+                    with st.expander("📝 Write a Review"):
+                        with st.form(key=f"rev_{item_id}", clear_on_submit=True):
+                            u_rating = st.selectbox("Stars", [5,4,3,2,1], key=f"s_{item_id}")
+                            u_comment = st.text_input("Comment...", key=f"c_{item_id}")
+                            if st.form_submit_button("Submit"):
+                                if u_comment.strip():
+                                    try: 
+                                        supabase.table("feedback").insert({"item_id": item_id, "rating": u_rating, "comment": u_comment}).execute()
+                                        st.rerun()
+                                    except: pass
+                    
+                    pay_url = item.get('payment_url')
+                    if pay_url and pay_url != "None": st.link_button("💳 Instant Buy / Pay Now", pay_url, use_container_width=True, type="primary")
+                    
+                    phone = merchant_directory.get(item.get('merchant_id'), "918072130833")
+                    wa_url = f"https://wa.me/{str(phone).strip()}?text=Hi,%20interested%20in%20{item.get('title')}"
+                    if st.button("💬 Chat on WhatsApp", key=f"wa_{item_id}", use_container_width=True):
+                        try: supabase.table("analytics").insert({"event_type": "whatsapp_click"}).execute()
+                        except: pass
+                        st.markdown(f'<meta http-equiv="refresh" content="0; url={wa_url}">', unsafe_allow_html=True)
+else:
+    st.info("No active promotions match your filter scopes currently.")
