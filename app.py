@@ -135,7 +135,9 @@ if "tracked_view" not in st.session_state:
 
 def clean_listing_text(text):
     if not text: return ""
-    cleaned = re.sub(r'\[\s*URGENT\s*DEAL\s*\]', '', text, flags=re.IGNORECASE)
+    # Strip away layout artifacts if they exist in legacy records
+    cleaned = re.sub(r'<span class=.*?>.*?</span>', '', text)
+    cleaned = re.sub(r'\[\s*URGENT\s*DEAL\s*\]', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'URGENT', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\|VERIFIED\|', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'[🚨🔴🔥🛑❗❗]', '', cleaned)
@@ -279,15 +281,15 @@ if is_merchant and merchant_menu == "✏️ Edit/Manage Listings":
     st.markdown(f"<div class='section-header'>✏️ Edit and Update Active Web Listings</div>", unsafe_allow_html=True)
     my_items = [i for i in items if i.get('merchant_id') == st.session_state.merchant_id]
     if my_items:
-        item_to_edit = st.selectbox("Select a listing to edit:", my_items, format_func=lambda x: f"{x.get('title')} (₹{x.get('price')})")
+        item_to_edit = st.selectbox("Select a listing to edit:", my_items, format_func=lambda x: f"{clean_listing_text(x.get('title'))} (₹{x.get('price')})")
         if item_to_edit:
             st.markdown("### Update Values Below:")
             with st.container(border=True):
                 with st.form(key="edit_item_form"):
-                    e_title = st.text_input("Product Title", value=item_to_edit.get('title'))
+                    e_title = st.text_input("Product Title", value=clean_listing_text(item_to_edit.get('title')))
                     e_cat = st.selectbox("Category", ["General", "Electronics", "Vehicles", "Housing"], index=["General", "Electronics", "Vehicles", "Housing"].index(item_to_edit.get('category', 'General')))
                     e_price = st.number_input("Price (₹)", value=int(item_to_edit.get('price', 0)))
-                    e_desc = st.text_input("Description", value=item_to_edit.get('description'))
+                    e_desc = st.text_input("Description", value=clean_listing_text(item_to_edit.get('description')))
                     e_loc = st.text_input("City/Area Label", value=item_to_edit.get('location'))
                     e_lat = st.number_input("Latitude (Decimal)", format="%.6f", value=float(item_to_edit.get('latitude', 8.8050)))
                     e_lon = st.number_input("Longitude (Decimal)", format="%.6f", value=float(item_to_edit.get('longitude', 78.1519)))
@@ -368,9 +370,9 @@ if filtered_items:
                 
                 associated_merchant = item.get('merchant_id')
                 is_verified = associated_merchant in verified_merchants and associated_merchant is not None
-                v_html = "<span class='verified-badge'>✨ Verified Shop</span>" if is_verified else ""
+                v_html = f"<span class='verified-badge'>✨ Verified Shop</span>" if is_verified else ""
                 
-                # Fixed Layout Order inside the flex block
+                # Dynamic Flex Row Injection Shield
                 st.markdown(f"""
                     <div class='badge-container'>
                         <span class='badge'>🏷️ {item.get('category', 'General')}</span>
