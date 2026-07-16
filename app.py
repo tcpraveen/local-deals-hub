@@ -6,7 +6,7 @@ from supabase import create_client, Client
 from streamlit_geolocation import streamlit_geolocation
 import pandas as pd
 
-# 1. Page Configuration & Premium Animation UI Styling
+# 1. Page Configuration & Premium UI Styling
 st.set_page_config(page_title="Neighborhood Deals Hub", layout="wide")
 
 st.markdown("""
@@ -15,7 +15,7 @@ st.markdown("""
     .report-link { color: #ff4b4b; font-weight: bold; font-size: 0.85rem; text-decoration: none; }
     .badge { background-color: #1e1e24; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #00d2ff; font-weight: 600; margin-right: 5px; }
     .loc-badge { background-color: #2a2315; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #ffaa00; font-weight: 600; margin-right: 5px; }
-    .dist-badge { background-color: #1b2a3a; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #00ffcc; font-weight: 600; }
+    .dist-badge { background-color: #1b2a3a; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #00ffcc; font-weight: 600; margin-right: 5px; }
     .verified-badge { background-color: #064e3b; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; color: #34d399; font-weight: 700; margin-right: 5px; border: 1px solid #059669; }
     
     /* Enlarge Typography Labels & Soften Placeholders */
@@ -44,7 +44,7 @@ st.markdown("""
         margin-bottom: 8px;
     }
     
-    /* Premium Card Grid Layout with Hover Lift Animation */
+    /* Card Layout Hover Animation */
     div[data-child-config="stVerticalBlock"] > div[data-testid="stVerticalBlockBorderWrapper"] {
         transition: transform 0.3s ease, box-shadow 0.3s ease !important;
     }
@@ -70,9 +70,7 @@ st.markdown("""
         height: 100%;
         object-fit: cover;
     }
-    .placeholder-icon {
-        font-size: 4rem;
-    }
+    .placeholder-icon { font-size: 4rem; }
     
     div[data-testid="stTextInput"] input, div[data-testid="stSelectbox"] select {
         border: 1px solid #2d313f !important;
@@ -82,25 +80,19 @@ st.markdown("""
         padding: 10px !important;
     }
     
-    /* Engaging Hero Section Styling */
     .hero-scanner-box {
         background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
         border: 2px solid #6366f1;
         padding: 26px;
         border-radius: 16px;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
         margin-bottom: 20px;
     }
-    
     .section-header {
         font-size: 1.6rem;
         font-weight: 700;
         color: #ffffff;
         margin-top: 15px;
         margin-bottom: 15px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -122,443 +114,199 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 if SUPABASE_URL and SUPABASE_KEY:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 else:
-    st.error("Missing Supabase API keys in Render environment secrets.")
+    st.error("Missing Supabase API keys in Render secrets.")
     st.stop()
 
-# Track Page View Hits (Analytics Engine)
+# Track Page View Hits
 if "tracked_view" not in st.session_state:
     try:
         supabase.table("analytics").insert({"event_type": "page_view"}).execute()
         st.session_state.tracked_view = True
     except Exception:
-        # Silently fail if analytics table does not exist yet to keep page running
         pass
 
-# Server-Side Text Filter Engine
 def clean_listing_text(text):
-    if not text:
-        return ""
+    if not text: return ""
     cleaned = re.sub(r'\[\s*URGENT\s*DEAL\s*\]', '', text, flags=re.IGNORECASE)
     cleaned = re.sub(r'URGENT', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'\|VERIFIED\|', '', cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r'[🚨🔴🔥🛑❗❗]', '', cleaned)
     return cleaned.strip()
 
-# Distance Calculation
 def calculate_distance(lat1, lon1, lat2, lon2):
-    if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
-        return None
+    if lat1 is None or lon1 is None or lat2 is None or lon2 is None: return None
     R = 6371.0
     rad_lat1, rad_lon1 = math.radians(lat1), math.radians(lon1)
     rad_lat2, rad_lon2 = math.radians(lat2), math.radians(lon2)
-    dlat = rad_lat2 - rad_lat1
-    dlon = rad_lon2 - rad_lon1
+    dlat, dlon = rad_lat2 - rad_lat1, rad_lon2 - rad_lon1
     a = math.sin(dlat / 2)**2 + math.cos(rad_lat1) * math.cos(rad_lat2) * math.sin(dlon / 2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return R * c
+    return R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)))
 
 # Fetch primary databases early
 try:
     items_response = supabase.table("items").select("*").execute()
     items = items_response.data
-    
     merchants_response = supabase.table("merchants").select("shop_id, phone_number").execute()
     merchant_directory = {m['shop_id']: m.get('phone_number') for m in merchants_response.data} if merchants_response.data else {}
-    
-    # Real-time analytics processing
     analytics_response = supabase.table("analytics").select("*").execute()
     analytics_data = analytics_response.data if analytics_response.data else []
 except Exception as e:
-    items = []
-    merchant_directory = {}
-    analytics_data = []
+    items, merchant_directory, analytics_data = [], {}, []
 
-# 3. Sidebar – Multi-Navigation & Customer Wishlist View
+# 3. Sidebar – Portal Control Console & Wishlist Map
 with st.sidebar:
     st.markdown("## 🛍️ Shopkeeper Portal")
-    
     if not st.session_state.logged_in:
         st.write("Sign in with your Shop Credentials")
         input_shop_id = st.text_input("Shopkeeper ID / Username", placeholder="e.g., shop_01")
-        input_password = st.text_input("Merchant Password", type="password", placeholder="Enter account password")
-        
+        input_password = st.text_input("Merchant Password", type="password")
         if st.button("Secure Login", use_container_width=True, type="primary"):
             if input_shop_id.strip() and input_password.strip():
                 try:
                     response = supabase.table("merchants").select("*").eq("shop_id", input_shop_id.strip()).execute()
-                    merchant_data = response.data
-                    
-                    if merchant_data and merchant_data[0].get("password") == input_password.strip():
+                    m_data = response.data
+                    if m_data and m_data[0].get("password") == input_password.strip():
                         st.session_state.logged_in = True
-                        st.session_state.merchant_id = merchant_data[0].get("shop_id")
-                        st.session_state.merchant_name = merchant_data[0].get("shop_name")
-                        st.success(f"Welcome back, {st.session_state.merchant_name}!")
+                        st.session_state.merchant_id = m_data[0].get("shop_id")
+                        st.session_state.merchant_name = m_data[0].get("shop_name")
                         st.rerun()
-                    else:
-                        st.error("Invalid credentials.")
-                except Exception as login_err:
-                    st.error(f"Auth Error: {login_err}")
+                    else: st.error("Invalid credentials.")
+                except Exception as err: st.error(f"Auth Error: {err}")
     else:
         st.success(f"🔒 Active: {st.session_state.merchant_name}")
-        merchant_menu = st.radio(
-            "Navigation Menu", 
-            ["📊 Dashboard Analytics", "📥 Deploy New Listing", "⚙️ Shop Settings"]
-        )
-        
+        merchant_menu = st.radio("Navigation Menu", ["📊 Dashboard Analytics", "📥 Deploy New Listing", "✏️ Edit/Manage Listings", "⚙️ Shop Settings"])
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Log Out of Portal", use_container_width=True, type="secondary"):
+        if st.button("Log Out of Portal", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.merchant_id = None
             st.session_state.merchant_name = None
             st.rerun()
 
-    # Feature 4: Wishlist / Favorites Panel Rendered in Sidebar
     st.markdown("---")
     st.markdown("### ❤️ My Saved Deals")
     if st.session_state.favorites:
         fav_items = [item for item in items if item.get('id') in st.session_state.favorites]
         for f_item in fav_items:
             col_fav1, col_fav2 = st.columns([4, 1])
-            with col_fav1:
-                st.markdown(f"**{f_item.get('title')}** (₹{f_item.get('price')})")
+            with col_fav1: st.markdown(f"**{f_item.get('title')}** (₹{f_item.get('price')})")
             with col_fav2:
                 if st.button("❌", key=f"rm_fav_{f_item.get('id')}"):
                     st.session_state.favorites.remove(f_item.get('id'))
                     st.rerun()
-    else:
-        st.caption("No deals saved yet. Tap ❤️ on listings to bookmark them here!")
+    else: st.caption("No deals saved yet.")
 
 is_merchant = st.session_state.logged_in
 
-# 4. Main Header & Location System
+# 4. Main Header
 st.markdown("# ⚡ Neighborhood Deals Hub")
 st.caption("Auto-Detecting Nearby Deals Safely and Privately")
 st.markdown("<br>", unsafe_allow_html=True)
 
 location_data = streamlit_geolocation()
-user_lat = location_data.get("latitude")
-user_lon = location_data.get("longitude")
+user_lat, user_lon = location_data.get("latitude"), location_data.get("longitude")
 
 with st.container():
     if user_lat and user_lon:
-        st.markdown(f"""
-        <div class='hero-scanner-box'>
-            <h3 style='margin:0 0 6px 0; color:#34d399;'>📍 Location Scanner Connected</h3>
-            <p style='margin:0 0 14px 0; font-size:0.95rem; color:#9ca3af;'>
-                Showcasing all live deals sorted directly by real walking distance.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"<div class='hero-scanner-box'><h3 style='margin:0 0 6px 0; color:#34d399;'>📍 Location Scanner Connected</h3><p style='margin:0; color:#9ca3af;'>Showcasing all live deals sorted directly by proximity.</p></div>", unsafe_allow_html=True)
     else:
-        st.markdown("""
-        <div class='hero-scanner-box'>
-            <h3 style='margin:0 0 6px 0; color:#a5b4fc;'>📡 Engage Proximity Scan</h3>
-            <p style='margin:0 0 14px 0; font-size:0.95rem; color:#9ca3af;'>
-                Click the tracking radar switch below to instantly unlock precise geometric sorting by local block proximity.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"<div class='hero-scanner-box'><h3 style='margin:0 0 6px 0; color:#a5b4fc;'>📡 Engage Proximity Scan</h3><p style='margin:0; color:#9ca3af;'>Click the tracking switch below to sort your deals geometrically.</p></div>", unsafe_allow_html=True)
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# 5. Feature 3: Real Analytics Dashboard
+# 5. Dashboard View Options
 if is_merchant and merchant_menu == "📊 Dashboard Analytics":
     st.markdown(f"<div class='section-header'>📊 Performance Metrics for {st.session_state.merchant_name}</div>", unsafe_allow_html=True)
-    
-    total_deals_count = len(items)
-    shop_partners_count = len(merchant_directory)
-    
-    # Calculate real statistics from table rows
     real_views = len([x for x in analytics_data if x.get('event_type') == 'page_view'])
     real_clicks = len([x for x in analytics_data if x.get('event_type') == 'whatsapp_click'])
-    
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-    with col_m1:
-        st.metric(label="Total Active Deals", value=total_deals_count)
-    with col_m2:
-        st.metric(label="Registered Shop Partners", value=shop_partners_count)
-    with col_m3:
-        st.metric(label="Real Page Views", value=real_views if real_views > 0 else "Pending Setup")
-    with col_m4:
-        st.metric(label="WhatsApp Chats Initiated", value=real_clicks)
+    with col_m1: st.metric(label="Total Active Deals", value=len(items))
+    with col_m2: st.metric(label="Registered Shop Partners", value=len(merchant_directory))
+    with col_m3: st.metric(label="Real Page Views", value=real_views)
+    with col_m4: st.metric(label="WhatsApp Chats Initiated", value=real_clicks)
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-# 6. Feature 2: Deploy Listing with True Image File Uploads
+# 6. Deploy Form Interface Tier
 if is_merchant and merchant_menu == "📥 Deploy New Listing":
     st.markdown(f"<div class='section-header'>📥 Deploy New Promotional Item</div>", unsafe_allow_html=True)
     with st.container(border=True):
         with st.form(key="add_item_form", clear_on_submit=True):
-            col_in1, col_in2, col_in3 = st.columns([2, 1, 1])
-            with col_in1:
-                new_title = st.text_input("Product Title*", placeholder="e.g., Fresh Sourdough Bread")
-            with col_in2:
-                new_cat = st.selectbox("Product Category*", ["General", "Electronics", "Vehicles", "Housing"])
-            with col_in3:
-                new_price = st.number_input("Price (₹)*", min_value=0, step=10, value=0)
-                
-            col_in4, col_in5 = st.columns([2, 2])
-            with col_in4:
-                new_desc = st.text_input("Description Content*", placeholder="Condition detail, timing windows...")
-            with col_in5:
-                new_loc = st.text_input("City/Area Label*", placeholder="e.g., North Authoor, Coimbatore")
-                
-            col_gps1, col_gps2 = st.columns(2)
-            with col_gps1:
-                item_lat_input = st.number_input("Item Latitude (Decimal)*", format="%.6f", value=11.0168, step=0.0001)
-            with col_gps2:
-                item_lon_input = st.number_input("Item Longitude (Decimal)*", format="%.6f", value=76.9558, step=0.0001)
-                
-            col_in6, col_in7 = st.columns([2, 2])
-            with col_in6:
-                # Upgraded to real File Uploader
-                uploaded_file = st.file_uploader("Upload Product Image", type=["png", "jpg", "jpeg"])
-                st.caption("💡 Leaving this blank automatically applies a matching category vector icon.")
-            with col_in7:
-                new_payment = st.text_input("Payment Link (Optional)", placeholder="e.g., Stripe, UPI link...")
-            
-            st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
-            submit_new_item = st.form_submit_button("🚀 Deploy Listing Live", use_container_width=True, type="primary")
-            
-            if submit_new_item:
+            c1, c2, c3 = st.columns([2, 1, 1])
+            new_title = c1.text_input("Product Title*", placeholder="e.g., Sony TV")
+            new_cat = c2.selectbox("Product Category*", ["General", "Electronics", "Vehicles", "Housing"])
+            new_price = c3.number_input("Price (₹)*", min_value=0, step=10, value=0)
+            c4, c5 = st.columns(2)
+            new_desc = c4.text_input("Description Content*", placeholder="Condition, time frames...")
+            new_loc = c5.text_input("City/Area Label*", placeholder="e.g., North Authoor, Thoothukudi")
+            c6, c7 = st.columns(2)
+            item_lat_input = c6.number_input("Item Latitude (Decimal)*", format="%.6f", value=8.8050, step=0.0001)
+            item_lon_input = c7.number_input("Item Longitude (Decimal)*", format="%.6f", value=78.1519, step=0.0001)
+            c8, c9 = st.columns(2)
+            uploaded_file = c8.file_uploader("Upload Product Image", type=["png", "jpg", "jpeg"])
+            new_payment = c9.text_input("Payment Link (Optional)")
+            if st.form_submit_button("🚀 Deploy Listing Live", use_container_width=True, type="primary"):
                 if new_title.strip() and new_desc.strip() and new_price > 0:
-                    filtered_title = clean_listing_text(new_title)
-                    filtered_desc = clean_listing_text(new_desc)
-                    final_loc = new_loc.strip() if new_loc.strip() else "Local Area"
-                    
                     final_image_url = None
-                    
-                    # Handle local file upload pipeline straight to Supabase Storage Bucket
-                    if uploaded_file is not None:
+                    if uploaded_file:
                         try:
-                            file_name = f"{st.session_state.merchant_id}_{uploaded_file.name}"
-                            file_data = uploaded_file.read()
-                            
-                            # Upload directly into bucket
-                            supabase.storage.from_("product-images").upload(
-                                path=file_name,
-                                file=file_data,
-                                file_options={"content-type": uploaded_file.type}
-                            )
-                            # Generate safe public download URL
-                            final_image_url = supabase.storage.from_("product-images").get_public_url(file_name)
-                        except Exception as upload_err:
-                            st.warning(f"Storage upload failed: {upload_err}. Proceeding with default icons.")
-                    
+                            f_name = f"{st.session_state.merchant_id}_{uploaded_file.name}"
+                            supabase.storage.from_("product-images").upload(path=f_name, file=uploaded_file.read(), file_options={"content-type": uploaded_file.type})
+                            final_image_url = supabase.storage.from_("product-images").get_public_url(f_name)
+                        except Exception: pass
                     try:
-                        payload = {
-                            "title": filtered_title,
-                            "description": filtered_desc,
-                            "category": new_cat,
-                            "price": new_price,
-                            "location": final_loc,
-                            "latitude": item_lat_input,
-                            "longitude": item_lon_input,
-                            "merchant_id": st.session_state.merchant_id 
-                        }
-                        if final_image_url:
-                            payload["image_url"] = final_image_url
-                        if new_payment.strip():
-                            payload["payment_url"] = new_payment.strip()
-                            
+                        payload = {"title": clean_listing_text(new_title), "description": clean_listing_text(new_desc), "category": new_cat, "price": new_price, "location": new_loc if new_loc.strip() else "Local Area", "latitude": item_lat_input, "longitude": item_lon_input, "merchant_id": st.session_state.merchant_id}
+                        if final_image_url: payload["image_url"] = final_image_url
+                        if new_payment.strip(): payload["payment_url"] = new_payment.strip()
                         supabase.table("items").insert(payload).execute()
-                        st.success("Listing deployed into active consumer feeds!")
+                        st.success("Listing deployed successfully!")
                         st.rerun()
-                    except Exception as err:
-                        st.error(f"Failed to submit entry: {err}")
-                else:
-                    st.warning("Please complete all required forms securely.")
+                    except Exception as err: st.error(f"Error: {err}")
+    st.markdown("<br><hr><br>", unsafe_allow_html=True)
+
+# 🌟 NEW FEATURE: Web Editor Interface Engine Tier
+if is_merchant and merchant_menu == "✏️ Edit/Manage Listings":
+    st.markdown(f"<div class='section-header'>✏️ Edit and Update Active Web Listings</div>", unsafe_allow_html=True)
+    my_items = [i for i in items if i.get('merchant_id') == st.session_state.merchant_id]
+    
+    if my_items:
+        item_to_edit = st.selectbox("Select a listing to edit:", my_items, format_func=lambda x: f"{x.get('title')} (₹{x.get('price')})")
+        if item_to_edit:
+            st.markdown("### Update Values Below:")
+            with st.container(border=True):
+                with st.form(key="edit_item_form"):
+                    e_title = st.text_input("Product Title", value=item_to_edit.get('title'))
+                    e_cat = st.selectbox("Category", ["General", "Electronics", "Vehicles", "Housing"], index=["General", "Electronics", "Vehicles", "Housing"].index(item_to_edit.get('category', 'General')))
+                    e_price = st.number_input("Price (₹)", value=int(item_to_edit.get('price', 0)))
+                    e_desc = st.text_input("Description", value=item_to_edit.get('description'))
+                    e_loc = st.text_input("City/Area Label", value=item_to_edit.get('location'))
+                    e_lat = st.number_input("Latitude (Decimal)", format="%.6f", value=float(item_to_edit.get('latitude', 8.8050)))
+                    e_lon = st.number_input("Longitude (Decimal)", format="%.6f", value=float(item_to_edit.get('longitude', 78.1519)))
+                    e_pay = st.text_input("Payment Link", value=item_to_edit.get('payment_url', ''))
+                    
+                    if st.form_submit_button("💾 Save Changes to Web Database", use_container_width=True, type="primary"):
+                        try:
+                            update_payload = {"title": clean_listing_text(e_title), "category": e_cat, "price": e_price, "description": clean_listing_text(e_desc), "location": e_loc, "latitude": e_lat, "longitude": e_lon, "payment_url": e_pay}
+                            supabase.table("items").update(update_payload).eq("id", item_to_edit.get('id')).execute()
+                            st.success("Database parameters modified successfully live!")
+                            st.rerun()
+                        except Exception as edit_err: st.error(f"Failed to save changes: {edit_err}")
+    else: st.info("You don't have any active listings deployed under this shop profile yet.")
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
 if is_merchant and merchant_menu == "⚙️ Shop Settings":
-    st.markdown(f"<div class='section-header'>⚙️ Shop Profile Configurations</div>", unsafe_allow_html=True)
-    st.info("Merchant profile parameters are configured fully operational.")
+    st.markdown(f"<div class='section-header'>⚙️ Profile Configurations</div>", unsafe_allow_html=True)
+    st.info("Profiles operational.")
     st.markdown("<br><hr><br>", unsafe_allow_html=True)
 
-# 7. Core Consumer Search Control Interface
+# 7. Core Consumer Filter Section
 st.markdown("<div class='section-header'>🔍 Filter Controls</div>", unsafe_allow_html=True)
 with st.container(border=True):
     col_f1, col_f2, col_f3 = st.columns([2, 1, 1])
-    with col_f1:
-        search_query = st.text_input("Search listings...", placeholder="Type keywords here to look up items...", label_visibility="collapsed")
-    with col_f2:
-        category = st.selectbox("Filter by Category", ["All Categories", "General", "Electronics", "Vehicles", "Housing"], label_visibility="collapsed")
-    with col_f3:
-        max_budget = st.slider("Max Budget Target (₹)", min_value=0, max_value=300000, value=150000, step=5000)
+    search_query = col_f1.text_input("Search...", placeholder="Type keywords here to look up items...", label_visibility="collapsed")
+    category = col_f2.selectbox("Category Selector", ["All Categories", "General", "Electronics", "Vehicles", "Housing"], label_visibility="collapsed")
+    max_budget = col_f3.slider("Max Budget Target (₹)", min_value=0, max_value=300000, value=150000, step=5000)
 
 st.markdown("<br><br>", unsafe_allow_html=True)
 
-# 8. Distance Mappings Loop
-filtered_items = []
-map_data_list = []
-
+# 8. Filter Logic Loop
+filtered_items, map_data_list = [], []
 for i in items:
-    t_clean = clean_listing_text(i.get('title', ''))
-    d_clean = clean_listing_text(i.get('description', ''))
-    c_clean = clean_listing_text(i.get('category', 'General'))
-    
-    search_match = (search_query.lower() in t_clean.lower() or search_query.lower() in d_clean.lower())
-    cat_match = (category == "All Categories" or (category.lower() in c_clean.lower()))
-    
-    try:
-        item_price = float(i.get('price', 0))
-    except:
-        item_price = 0
-    price_match = (item_price <= max_budget)
-    
-    i_lat = i.get('latitude')
-    i_lon = i.get('longitude')
-    computed_dist = calculate_distance(user_lat, user_lon, i_lat, i_lon)
-    i['calculated_distance'] = computed_dist
-    
-    i['title'] = t_clean
-    i['description'] = d_clean
-    i['category'] = c_clean
-    if not i.get('location') or i.get('location') == "None":
-        i['location'] = "Local Area"
-        
-    if search_match and cat_match and price_match:
-        filtered_items.append(i)
-        if i_lat is not None and i_lon is not None:
-            map_data_list.append({"latitude": float(i_lat), "longitude": float(i_lon)})
-
-if user_lat and user_lon:
-    filtered_items.sort(key=lambda x: x['calculated_distance'] if x['calculated_distance'] is not None else float('inf'))
-
-# Feature 1: Live Interactive Map View
-if map_data_list:
-    st.markdown("### 🗺️ Neighborhood Deal Map")
-    map_df = pd.DataFrame(map_data_list)
-    st.map(map_df, use_container_width=True)
-    st.markdown("<br><br>", unsafe_allow_html=True)
-
-# 9. Clean Layout Grid Presentation Renderer
-if filtered_items:
-    cols = st.columns(3)
-    for idx, item in enumerate(filtered_items):
-        with cols[idx % 3]:
-            with st.container(border=True):
-                img_url = item.get('image_url') or item.get('photo_url')
-                
-                if img_url and img_url.strip() and img_url != "None":
-                    st.markdown(f"""
-                        <div class='img-container'>
-                            <img src='{img_url}' alt='Product Image'>
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    cat_type = str(item.get('category', 'General')).lower()
-                    item_title = str(item.get('title', '')).lower()
-                    
-                    placeholder_emoji = "📦"
-                    
-                    if "elect" in cat_type:
-                        if any(k in item_title for k in ["tv", "television", "display", "monitor", "screen"]):
-                            placeholder_emoji = "📺"
-                        elif any(k in item_title for k in ["mac", "macbook", "laptop", "pc", "computer"]):
-                            placeholder_emoji = "💻"
-                        elif any(k in item_title for k in ["watch", "smartwatch", "wearable"]):
-                            placeholder_emoji = "⌚"
-                        elif any(k in item_title for k in ["fridge", "refrigerator", "ac", "cooler", "washing"]):
-                            placeholder_emoji = "🔌"
-                        else:
-                            placeholder_emoji = "📱"
-                    elif "hous" in cat_type:
-                        if any(k in item_title for k in ["sofa", "chair", "table", "bed", "furniture", "desk"]):
-                            placeholder_emoji = "🪑"
-                        else:
-                            placeholder_emoji = "🏠"
-                    elif "vehic" in cat_type:
-                        if any(k in item_title for k in ["bike", "motorcycle", "scooter", "activa", "ktm"]):
-                            placeholder_emoji = "🏍️"
-                        elif any(k in item_title for k in ["cycle", "bicycle"]):
-                            placeholder_emoji = "🚲"
-                        else:
-                            placeholder_emoji = "🚗"
-                    
-                    st.markdown(f"""
-                        <div class='img-container'>
-                            <div class='placeholder-icon'>{placeholder_emoji}</div>
-                        </div>
-                    """, unsafe_allow_html=True)
-                
-                dist_value = item.get('calculated_distance')
-                dist_html = f"<span class='dist-badge'>⚡ {dist_value:.1f} km away</span>" if dist_value is not None else ""
-                
-                associated_merchant = item.get('merchant_id')
-                is_verified_shop = associated_merchant in merchant_directory and associated_merchant is not None
-                verified_html = "<span class='verified-badge'>✨ Verified Shop</span>" if is_verified_shop else ""
-                
-                st.markdown(f"""
-                    <div style='margin-bottom: 8px;'>
-                        <span class='badge'>🏷️ {item.get('category', 'General')}</span>
-                        <span class='loc-badge'>📍 {item.get('location', 'Local Area')}</span>
-                        {dist_html}
-                        {verified_html}
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown(f"<div class='product-title'>{item.get('title', 'No Title')}</div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='product-price'>₹{float(item.get('price', 0)):,.2f}</div>", unsafe_allow_html=True)
-                st.write(item.get('description', ''))
-                
-                item_id = item['id']
-                
-                # Dynamic Buttons Side-by-Side: Favorite Wishlist Toggle
-                col_btn1, col_btn2 = st.columns([4, 1])
-                with col_btn1:
-                    is_fav = item_id in st.session_state.favorites
-                    fav_label = "❤️ Bookmarked" if is_fav else "🤍 Favorite Deal"
-                    if st.button(fav_label, key=f"fav_btn_{item_id}", use_container_width=True):
-                        if is_fav:
-                            st.session_state.favorites.remove(item_id)
-                        else:
-                            st.session_state.favorites.append(item_id)
-                        st.rerun()
-                
-                if is_merchant and item.get('merchant_id') == st.session_state.merchant_id:
-                    st.markdown("---")
-                    st.caption("🛠️ Shop Control Console")
-                    if st.button(f"🗑️ Remove Listing", key=f"del_{item_id}", type="primary", use_container_width=True):
-                        try:
-                            supabase.table("items").delete().eq("id", item_id).execute()
-                            st.success("Listing cleared!")
-                            st.rerun()
-                        except Exception as err:
-                            st.error(f"Error: {err}")
-                else:
-                    st.markdown("<div style='margin-top: 12px; margin-bottom: 12px;'><a class='report-link' href='#'>⚠️ Report Listing</a></div>", unsafe_allow_html=True)
-                    
-                    with st.expander("📝 Write a Review"):
-                        with st.form(key=f"review_{item_id}", clear_on_submit=True):
-                            user_rating = st.selectbox("Select Stars", [5, 4, 3, 2, 1], key=f"s_{item_id}")
-                            user_comment = st.text_input("Comment...", key=f"c_{item_id}")
-                            if st.form_submit_button("Submit"):
-                                if user_comment.strip():
-                                    try:
-                                        supabase.table("feedback").insert({"item_id": item_id, "rating": user_rating, "comment": user_comment}).execute()
-                                        st.success("Submitted!")
-                                        st.rerun()
-                                    except Exception as err:
-                                        st.error(f"Error: {err}")
-                    
-                    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
-                    pay_url = item.get('payment_url')
-                    if pay_url and pay_url != "None":
-                        st.link_button("💳 Instant Buy / Pay Now", pay_url, use_container_width=True, type="primary")
-                    
-                    raw_phone = merchant_directory.get(associated_merchant)
-                    clean_phone = str(raw_phone).strip() if raw_phone else "918072130833"
-                    
-                    msg = f"Hi, I'm interested in buying your {item.get('title')} from Neighborhood Hub."
-                    whatsapp_url = f"https://wa.me/{clean_phone}?text={msg.replace(' ', '%20')}"
-                    
-                    # Track event click directly to the Supabase Analytics Table
-                    track_click_key = f"wa_click_{item_id}"
-                    if st.button("💬 Chat on WhatsApp", key=track_click_key, use_container_width=True):
-                        try:
-                            supabase.table("analytics").insert({"event_type": "whatsapp_click"}).execute()
-                        except Exception:
-                            pass
-                        st.markdown(f'<meta http-equiv="refresh" content="0; url={whatsapp_url}">', unsafe_allow_html=True)
-else:
-    st.info("No active neighborhood promotions match your filter scopes currently.")
+    t_clean, d_clean, c_clean = clean_listing_text(i.get('title', '')), clean_listing_text(i.get('description', '')), clean_listing_text(i.get('category', 'General'))
+    s_match = (search_query.lower() in t_clean.lower() or search_query.lower() in d_clean
