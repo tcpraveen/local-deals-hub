@@ -146,14 +146,24 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 try:
     items_response = supabase.table("items").select("*").execute()
     items = items_response.data
-    merchants_response = supabase.table("merchants").select("shop_id, phone_number").execute()
-    merchant_directory = {m['shop_id']: m.get('phone_number') for m in merchants_response.data} if merchants_response.data else {}
+    
+    # Secure Verification Engine Fix: Fetch phone number AND verification status explicitly
+    merchants_response = supabase.table("merchants").select("shop_id, phone_number, is_verified").execute()
+    merchant_directory = {}
+    verified_merchants = set()
+    
+    if merchants_response.data:
+        for m in merchants_response.data:
+            merchant_directory[m['shop_id']] = m.get('phone_number')
+            if m.get('is_verified') is True:
+                verified_merchants.add(m['shop_id'])
+                
     analytics_response = supabase.table("analytics").select("*").execute()
     analytics_data = analytics_response.data if analytics_response.data else []
 except Exception as e:
-    items, merchant_directory, analytics_data = [], {}, []
+    items, merchant_directory, verified_merchants, analytics_data = [], {}, set(), []
 
-# 3. Sidebar – Portal Control Console & Wishlist Map
+# 3. Sidebar Portal Control Console
 with st.sidebar:
     st.markdown("## 🛍️ Shopkeeper Portal")
     if not st.session_state.logged_in:
@@ -282,7 +292,7 @@ if is_merchant and merchant_menu == "✏️ Edit/Manage Listings":
                     
                     if st.form_submit_button("💾 Save Changes to Web Database", use_container_width=True, type="primary"):
                         try:
-                            update_payload = {"title": clean_listing_text(e_title), "category": e_cat, "price": e_price, "description": clean_listing_text(e_desc), "location": e_loc, "latitude": e_lat, "longitude": e_lon, "payment_url": e_pay}
+                            update_payload = {"title": clean_listing_text(e_title), "category": e_cat, "price": e_price, "description": clean_listing_text(e_desc), "location": e_loc if e_loc.strip() else "Local Area", "latitude": e_lat, "longitude": e_lon, "payment_url": e_pay}
                             supabase.table("items").update(update_payload).eq("id", item_to_edit.get('id')).execute()
                             st.success("Database parameters modified successfully live!")
                             st.rerun()
@@ -355,7 +365,10 @@ if filtered_items:
                 
                 dist_v = item.get('calculated_distance')
                 dist_html = f"<span class='dist-badge'>⚡ {dist_v:.1f} km away</span>" if dist_v is not None else ""
-                is_verified = item.get('merchant_id') in merchant_directory and item.get('merchant_id') is not None
+                
+                # Vetted Trust Engine Check: Render verification badge ONLY if explicitly approved in verified_merchants set
+                associated_merchant = item.get('merchant_id')
+                is_verified = associated_merchant in verified_merchants and associated_merchant is not None
                 v_html = "<span class='verified-badge'>✨ Verified Shop</span>" if is_verified else ""
                 
                 st.markdown(f"<div style='margin-bottom: 8px;'><span class='badge'>🏷️ {item.get('category', 'General')}</span><span class='loc-badge'>📍 {item.get('location', 'Local Area')}</span>{dist_html}{v_html}</div>", unsafe_allow_html=True)
