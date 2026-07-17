@@ -3,7 +3,6 @@ import math
 import re
 import streamlit as st
 from supabase import create_client, Client
-from streamlit_geolocation import streamlit_geolocation
 import pandas as pd
 
 # 1. Page Configuration & UI Layout Config
@@ -178,8 +177,16 @@ st.markdown("# ⚡ Neighborhood Deals Hub")
 st.caption("Auto-Detecting Nearby Deals Safely and Privately")
 st.markdown("<br>", unsafe_allow_html=True)
 
-location_data = streamlit_geolocation()
-user_lat, user_lon = location_data.get("latitude"), location_data.get("longitude")
+# DEFAULT BASE STABILIZATION: Thoothukudi fallback parameters
+user_lat, user_lon = 8.8050, 78.1519
+
+try:
+    from streamlit_geolocation import streamlit_geolocation
+    location_data = streamlit_geolocation()
+    if location_data and location_data.get("latitude"):
+        user_lat, user_lon = location_data.get("latitude"), location_data.get("longitude")
+except Exception:
+    pass
 
 # 5. Form Deployment Console Tier
 if is_merchant and merchant_menu == "📥 Deploy New Listing":
@@ -233,6 +240,7 @@ with st.container(border=True):
 
 # 8. Clean Filter Processing Logic Loop
 filtered_items = []
+map_data_list = []
 for i in items:
     t_clean = clean_listing_text(i.get('title', ''))
     d_clean = clean_listing_text(i.get('description', ''))
@@ -242,27 +250,33 @@ for i in items:
     s_match = (search_query.lower() in t_clean.lower() or search_query.lower() in d_clean.lower())
     c_match = (category == "All Categories" or (category.lower() in c_clean.lower()))
     
-    i['calculated_distance'] = calculate_distance(user_lat, user_lon, i.get('latitude'), i.get('longitude'))
+    i_lat, i_lon = i.get('latitude'), i.get('longitude')
+    i['calculated_distance'] = calculate_distance(user_lat, user_lon, i_lat, i_lon)
     i['title'], i['description'], i['category'], i['location'] = t_clean, d_clean, c_clean, l_clean
     
     if s_match and c_match:
         filtered_items.append(i)
+        if i_lat is not None and i_lon is not None:
+            map_data_list.append({"latitude": float(i_lat), "longitude": float(i_lon)})
 
-# 9. Native Streamlit Grid Card presentation
+# 9. MAP RESTORE: Render interactive geographical placement widget immediately
+if map_data_list:
+    st.markdown("### 🗺️ Neighborhood Deal Map")
+    st.map(pd.DataFrame(map_data_list), use_container_width=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
+# 10. Native Streamlit Grid Card presentation
 if filtered_items:
     cols = st.columns(3)
     for idx, item in enumerate(filtered_items):
         with cols[idx % 3]:
             with st.container(border=True):
-                # Placeholder Icon Canvas Presentation
                 st.markdown("<div class='img-container'><div class='placeholder-icon'>📺</div></div>", unsafe_allow_html=True)
                 
-                # Render Clean Native Streamlit Badge Row
                 b_col1, b_col2 = st.columns(2)
                 b_col1.markdown(f"🏷️ `{item.get('category')}`")
                 b_col2.markdown(f"📍 `{item.get('location')}`")
                 
-                # Vetted Verification Badging Check Engine Logic
                 is_verified = item.get('merchant_id') in verified_merchants and item.get('merchant_id') is not None
                 if is_verified:
                     st.success("✨ Verified Shop Partner")
@@ -272,7 +286,6 @@ if filtered_items:
                 st.write(item.get('description'))
                 st.markdown("---")
                 
-                # Operational Action Actions Console
                 if is_merchant and item.get('merchant_id') == st.session_state.merchant_id:
                     if st.button(f"🗑️ Remove Deal Item", key=f"del_{item['id']}", type="primary", use_container_width=True):
                         supabase.table("items").delete().eq("id", item['id']).execute()
