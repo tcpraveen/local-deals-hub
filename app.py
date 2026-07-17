@@ -31,8 +31,8 @@ st.markdown("""
         line-height: 1.2;
     }
     .product-price {
-        font-size: 1.15rem;
-        font-weight: 600;
+        font-size: 1.25rem;
+        font-weight: 700;
         color: #00ffcc;
         margin-bottom: 8px;
     }
@@ -108,6 +108,21 @@ else:
     st.error("Missing Supabase keys.")
     st.stop()
 
+# Custom Indian Currency Formatter Functions
+def format_indian_currency(amount):
+    try:
+        val = int(float(amount))
+        s = str(val)
+        if len(s) <= 3:
+            return f"₹{s}"
+        else:
+            last_three = s[-3:]
+            remaining = s[:-3]
+            remaining_fmt = re.sub(r'(..)(?=.)', r'\1,', remaining[::-1])[::-1]
+            return f"₹{remaining_fmt},{last_three}"
+    except:
+        return f"₹{amount}"
+
 def clean_listing_text(text):
     if not text: return ""
     cleaned = re.sub(r'<[^>]*>', '', str(text))
@@ -177,7 +192,7 @@ st.markdown("# ⚡ Neighborhood Deals Hub")
 st.caption("Auto-Detecting Nearby Deals Safely and Privately")
 st.markdown("<br>", unsafe_allow_html=True)
 
-# DEFAULT BASE STABILIZATION: Thoothukudi fallback parameters
+# Default location parameters (Thoothukudi base fallback configuration)
 user_lat, user_lon = 8.8050, 78.1519
 
 try:
@@ -259,13 +274,13 @@ for i in items:
         if i_lat is not None and i_lon is not None:
             map_data_list.append({"latitude": float(i_lat), "longitude": float(i_lon)})
 
-# 9. MAP RESTORE: Render interactive geographical placement widget immediately
+# 9. Live Map Widget Restore Module
 if map_data_list:
     st.markdown("### 🗺️ Neighborhood Deal Map")
     st.map(pd.DataFrame(map_data_list), use_container_width=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-# 10. Native Streamlit Grid Card presentation
+# 10. Native Streamlit Grid Card Presentation
 if filtered_items:
     cols = st.columns(3)
     for idx, item in enumerate(filtered_items):
@@ -282,7 +297,8 @@ if filtered_items:
                     st.success("✨ Verified Shop Partner")
                 
                 st.markdown(f"<div class='product-title'>{item.get('title')}</div>", unsafe_allow_html=True)
-                st.markdown(f"<div class='product-price'>₹{float(item.get('price')):,.2f}</div>", unsafe_allow_html=True)
+                # Indian Number System Formatting Pipeline Injection (₹1,50,000)
+                st.markdown(f"<div class='product-price'>{format_indian_currency(item.get('price', 0))}</div>", unsafe_allow_html=True)
                 st.write(item.get('description'))
                 st.markdown("---")
                 
