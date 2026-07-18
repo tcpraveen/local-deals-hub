@@ -6,7 +6,8 @@ import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
 
-# 1. Page Configuration & Ultra-Clean Dark Marketplace Styling
+# 1. Page Configuration & Premium Minimalist Dark UI Styling
+# Set initial_sidebar_state="collapsed" to hide the sidebar toggle drawer completely from customers
 st.set_page_config(page_title="Neighborhood Deals Hub", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
@@ -14,6 +15,11 @@ st.markdown("""
     /* Premium Dark Mode Global Setup */
     .stApp {
         background-color: #0f172a !important;
+    }
+    
+    /* Hide the default Streamlit sidebar toggle entirely for a pure clean homepage layout */
+    section[data-testid="stSidebar"] {
+        display: none !important;
     }
     
     /* Sleek Top Navigation Header Bar */
@@ -75,7 +81,7 @@ st.markdown("""
         color: #475569;
     }
     
-    /* Text Details Section: Takes the remaining ~35% space */
+    /* Text Details Section */
     .card-details-box {
         display: flex;
         flex-direction: column;
@@ -177,7 +183,7 @@ if "merchant_name" not in st.session_state:
 if "current_category" not in st.session_state:
     st.session_state.current_category = "All"
 if "view_mode" not in st.session_state:
-    st.session_state.view_mode = "Customer" # Standard fallback setup
+    st.session_state.view_mode = "Customer"
 
 # 2. Supabase Connection Setup
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -223,7 +229,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))), 1)
 
-# Pull clean database rows
+# Pull database records
 try:
     items_response = supabase.table("items").select("*").order("created_at", desc=True).execute()
     items = items_response.data if items_response.data else []
@@ -238,17 +244,16 @@ except Exception:
 
 user_lat, user_lon = 8.8050, 78.1519
 
-# 3. HIGH-TRUST NAVIGATION LAYER (Completely cleans up layout space)
+# 3. HIGH-TRUST NAVIGATION LAYER (100% Customer-First Alignment Header)
 with st.container():
     col_nav1, col_nav2 = st.columns([4, 1])
     with col_nav1:
         st.markdown("""
-            <div style="font-size: 1.65rem; font-weight: 700; color: #ffffff;">
+            <div style="font-size: 1.65rem; font-weight: 700; color: #ffffff; padding-top: 5px;">
                 ⚡ <span style="background: linear-gradient(90deg, #38bdf8, #2874f0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Neighborhood Deals Hub</span>
             </div>
         """, unsafe_allow_html=True)
     with col_nav2:
-        # Dynamic button placement switch completely out of customer tracking scope
         if st.session_state.view_mode == "Customer":
             if st.button("🏢 Merchant Portal", use_container_width=True, type="secondary"):
                 st.session_state.view_mode = "Merchant"
@@ -258,7 +263,7 @@ with st.container():
                 st.session_state.view_mode = "Customer"
                 st.rerun()
 
-# 4. CUSTOMER-FIRST HOME VIEW ENTRY
+# 4. CUSTOMER-FIRST HOME VIEW ENTRY (Completely clean screen canvas)
 if st.session_state.view_mode == "Customer":
     st.markdown("<div class='hero-tagline'>Discover today's best offers from verified local shops near you.</div>", unsafe_allow_html=True)
     
@@ -362,7 +367,6 @@ else:
                     st.rerun()
                 else: st.error("Access rejected. Please check variables.")
     else:
-        # Logged-in Merchant Portal View Layout
         m_info = merchants_dict.get(st.session_state.merchant_id, {})
         m_logo = m_info.get("logo_url") if m_info.get("logo_url") else "https://cdn-icons-png.flaticon.com/512/606/606547.png"
         
@@ -378,7 +382,7 @@ else:
         
         op_menu = st.tabs(["📊 Analytics Dashboard", "📥 Add Promotion Card", "✏️ Edit Store Catalog"])
         
-        # TAB 1: Real click-leads counter metrics dashboard
+        # TAB 1: Analytics metrics dashboard
         with op_menu[0]:
             my_items = [x for x in items if x.get('merchant_id') == st.session_state.merchant_id]
             my_clicks = len([a for a in analytics_data if a.get('merchant_id') == st.session_state.merchant_id])
@@ -388,7 +392,7 @@ else:
             col_m2.markdown(f"<div class='metric-card'><div class='metric-val'>{len(my_items)}</div><div class='metric-lbl'>Live Listings</div></div>", unsafe_allow_html=True)
             col_m3.markdown(f"<div class='metric-card'><div class='metric-val'>{my_clicks}</div><div class='metric-lbl'>WhatsApp Conversions</div></div>", unsafe_allow_html=True)
             
-        # TAB 2: Clean layout entry inputs form
+        # TAB 2: Add Promotion Card
         with op_menu[1]:
             with st.form(key="add_item_form_new", clear_on_submit=True):
                 col_inputs = st.columns(2)
@@ -404,10 +408,9 @@ else:
                         coords = {"North Authoor": (8.8050, 78.1519), "Central Bazar": (8.8100, 78.1450), "Tiruchendur Road": (8.7950, 78.1600), "Millerpuram": (8.8020, 78.1320)}.get(n_loc, (8.8050, 78.1519))
                         supabase.table("items").insert({"title": n_title.strip(), "description": n_desc.strip(), "category": n_cat, "price": n_price, "location": n_loc, "image_url": n_img.strip(), "latitude": coords[0], "longitude": coords[1], "merchant_id": st.session_state.merchant_id}).execute()
                         st.success("Deal broadcast catalog pipeline synced successfully!")
-                        st.invalidate_pages()
                         st.rerun()
 
-        # TAB 3: Edit / Delete catalog records interface
+        # TAB 3: Edit / Delete catalog records
         with op_menu[2]:
             my_items = [i for i in items if i.get('merchant_id') == st.session_state.merchant_id]
             if my_items:
