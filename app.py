@@ -1,3 +1,4 @@
+
 import os
 import math
 import re
@@ -5,79 +6,83 @@ import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
 
-# 1. Page Configuration & Clean Flipkart-Inspired UI Styling
+# 1. Page Configuration & Premium Dark UI Styling
 st.set_page_config(page_title="Neighborhood Deals Hub", layout="wide")
 
 st.markdown("""
     <style>
-    /* Global Background and Canvas Setup */
+    /* Premium Dark Mode Global Setup */
     .stApp {
-        background-color: #f1f3f6 !important;
+        background-color: #0f172a !important;
     }
     
-    /* Hero Banner Component */
+    /* Dark Theme Hero Banner */
     .hero-scanner-box {
-        background-color: #ffffff;
+        background-color: #1e293b;
         border-radius: 4px;
         padding: 20px;
         margin-bottom: 20px;
-        box-shadow: 0 1px 4px 0 rgba(0,0,0,0.1);
-        border-left: 5px solid #2874f0; /* Flipkart Blue Accent */
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);
+        border-left: 5px solid #2874f0;
     }
     
-    /* Clean Filter Strip Area */
+    /* Clean Dark Filter Area */
     div[data-testid="stForm"] {
-        background-color: #ffffff !important;
+        background-color: #1e293b !important;
         border: none !important;
         border-radius: 4px !important;
-        box-shadow: 0 1px 4px 0 rgba(0,0,0,0.1) !important;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2) !important;
         padding: 15px !important;
     }
     
     .section-header {
         font-size: 1.4rem;
         font-weight: 600;
-        color: #212121;
+        color: #f8fafc;
         margin-top: 10px;
         margin-bottom: 15px;
     }
     
-    /* Flipkart-Style Product Card Styling Grid */
+    /* Sleek Dark Marketplace Product Card Layout */
     .product-card-frame {
-        background-color: #ffffff;
-        border-radius: 4px;
+        background-color: #1e293b;
+        border-radius: 6px;
         padding: 16px;
-        box-shadow: 0 1px 4px 0 rgba(0,0,0,0.08);
-        transition: box-shadow 0.2s ease-in-out;
+        box-shadow: 0 2px 8px 0 rgba(0,0,0,0.3);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
         display: flex;
         flex-direction: column;
         height: 100%;
+        border: 1px solid #334155;
     }
     .product-card-frame:hover {
-        box-shadow: 0 4px 12px 0 rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px 0 rgba(0,0,0,0.4);
+        border-color: #475569;
     }
     
-    /* Clean Image Shell */
+    /* Dynamic Dark Image Container Shell */
     .img-container {
         width: 100%;
         height: 180px;
         overflow: hidden;
-        background-color: #ffffff;
+        background-color: #0f172a;
         display: flex;
         align-items: center;
         justify-content: center;
         margin-bottom: 12px;
+        border-radius: 4px;
     }
     .placeholder-icon { 
         font-size: 4.5rem; 
-        color: #878787;
+        color: #64748b;
     }
     
-    /* Minimalistic Text Typography Hierarchy */
+    /* Clean Typography Color Mappings */
     .product-title {
         font-size: 1.05rem;
         font-weight: 500;
-        color: #212121;
+        color: #f8fafc;
         margin-bottom: 5px;
         white-space: nowrap;
         overflow: hidden;
@@ -85,15 +90,15 @@ st.markdown("""
     }
     
     .product-price {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: #212121;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #38bdf8; /* Bright Skyline Blue accent for readability */
         margin-bottom: 6px;
     }
     
     .product-desc {
         font-size: 0.9rem;
-        color: #878787;
+        color: #94a3b8;
         margin-bottom: 12px;
         height: 40px;
         overflow: hidden;
@@ -103,7 +108,7 @@ st.markdown("""
         -webkit-box-orient: vertical;
     }
     
-    /* Badges & Micro-tags Style */
+    /* Dark Theme Micro-tag Badges */
     .tag-row {
         display: flex;
         gap: 6px;
@@ -111,19 +116,23 @@ st.markdown("""
         flex-wrap: wrap;
     }
     .ui-badge {
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         font-weight: 600;
         padding: 3px 6px;
-        border-radius: 2px;
+        border-radius: 3px;
         text-transform: uppercase;
     }
-    .cat-tag { background-color: #f0f5ff; color: #2874f0; }
-    .loc-tag { background-color: #f5f5f5; color: #666666; }
+    .cat-tag { background-color: #0369a1; color: #e0f2fe; }
+    .loc-tag { background-color: #334155; color: #cbd5e1; }
     
-    /* Custom style targeting native elements */
+    /* Custom style overrides targeting default Streamlit elements */
     div[data-testid="stWidgetLabel"] p {
-        color: #212121 !important;
+        color: #f8fafc !important;
         font-weight: 500 !important;
+    }
+    
+    h1 {
+        color: #ffffff !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -207,9 +216,9 @@ with st.sidebar:
 
 is_merchant = st.session_state.logged_in
 
-# 4. App Main Layout
-st.markdown("<h1 style='color: #212121; font-weight:600; margin-bottom:0;'>Neighborhood Deals Hub</h1>", unsafe_allow_html=True)
-st.markdown("<p style='color: #878787; margin-top:0; font-size:0.95rem;'>Browse catalog promotions directly inside a clean design grid.</p>", unsafe_allow_html=True)
+# 4. App Main Layout Headers
+st.markdown("<h1 style='font-weight:600; margin-bottom:0;'>Neighborhood Deals Hub</h1>", unsafe_allow_html=True)
+st.markdown("<p style='color: #94a3b8; margin-top:0; font-size:0.95rem;'>Browse catalog promotions directly inside a clean design grid.</p>", unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 
 # 5. Form Deployment Console Tier
@@ -283,12 +292,11 @@ if map_data_list:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# 10. Flipkart-Style Grid Presentation Card Rendering
+# 10. Modernized Dark Grid Presentation Card Rendering
 if filtered_items:
-    cols = st.columns(4) # Switched to 4 items wide just like major marketplace indexes!
+    cols = st.columns(4)
     for idx, item in enumerate(filtered_items):
         with cols[idx % 4]:
-            # Custom styled structural div injection
             st.markdown(f"""
                 <div class="product-card-frame">
                     <div class="img-container">
@@ -304,10 +312,10 @@ if filtered_items:
                 </div>
             """, unsafe_allow_html=True)
             
-            # Action controls stacked cleanly below the HTML visual element card
+            # High-Contrast Bright Green Verification Marker Tier for Dark Cards
             is_verified = item.get('merchant_id') in verified_merchants and item.get('merchant_id') is not None
             if is_verified:
-                st.caption("✨ Verified Store Promotion")
+                st.markdown("<p style='color: #4ade80; font-weight: 600; font-size: 0.85rem; margin-top: 6px; margin-bottom: 4px;'>✨ Verified Store Promotion</p>", unsafe_allow_html=True)
                 
             if is_merchant and item.get('merchant_id') == st.session_state.merchant_id:
                 if st.button(f"🗑️ Delete", key=f"del_{item['id']}", type="primary", use_container_width=True):
