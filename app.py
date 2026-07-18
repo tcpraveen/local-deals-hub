@@ -297,7 +297,6 @@ if is_merchant:
             new_img = col_i2.text_input("Product Photo URL", placeholder="https://images.unsplash.com/...")
             new_desc = st.text_area("Product Specifications / Short Description*")
             
-            # Simplified Location Selection to drop user friction points
             new_loc = st.selectbox("Select Drop Location Area*", ["North Authoor", "Central Bazar", "Tiruchendur Road", "Millerpuram"])
             loc_coords = {"North Authoor": (8.8050, 78.1519), "Central Bazar": (8.8100, 78.1450), "Tiruchendur Road": (8.7950, 78.1600), "Millerpuram": (8.8020, 78.1320)}
             
@@ -372,6 +371,7 @@ if map_data_list:
 
 # 9. FLIPKART-INSPIRED CLEAN DEALS CONTAINER GRID
 if filtered_items:
+    st.markdown("<div class='section-header'>🔥 Hot Promotions Near You</div>", unsafe_allow_html=True)
     cols = st.columns(4)
     for idx, item in enumerate(filtered_items):
         with cols[idx % 4]:
@@ -412,7 +412,9 @@ if filtered_items:
                     supabase.table("items").delete().eq("id", item['id']).execute()
                     st.rerun()
             else:
-                phone = merchant_directory.get(item.get('merchant_id'), "918072130833")
+                # FIXED: Accessing the dictionary data properly using the correct mapped identifier
+                shop_profile = merchants_dict.get(item.get('merchant_id'), {})
+                phone = shop_profile.get('phone_number', '918072130833')
                 
                 # Analytics Tracker Trigger Logic Callback
                 def track_lead(m_id, item_id):
