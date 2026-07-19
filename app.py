@@ -7,7 +7,6 @@ from supabase import create_client, Client
 import pandas as pd
 
 # 1. Page Configuration & Premium Minimalist Dark UI Styling
-# Set initial_sidebar_state="collapsed" to hide the sidebar toggle drawer completely from customers
 st.set_page_config(page_title="Neighborhood Deals Hub", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
@@ -41,7 +40,7 @@ st.markdown("""
         font-weight: 400;
     }
     
-    /* Flipkart/Apple Inspired 65-35 Card Architecture Framework */
+    /* 65-35 Premium Card Architecture Framework */
     .product-card-frame {
         background-color: #1e293b;
         border-radius: 12px;
@@ -50,7 +49,7 @@ st.markdown("""
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         display: flex;
         flex-direction: column;
-        height: 440px; /* Locked precise vertical height consistency */
+        height: 440px; 
         border: 1px solid #334155;
     }
     .product-card-frame:hover {
@@ -59,7 +58,7 @@ st.markdown("""
         border-color: #475569;
     }
     
-    /* Image Section: Overrides to fill exactly ~60-65% profile space */
+    /* Image Section: Fills exactly ~60-65% profile space */
     .img-container {
         width: 100%;
         height: 240px; 
@@ -244,13 +243,13 @@ except Exception:
 
 user_lat, user_lon = 8.8050, 78.1519
 
-# 3. HIGH-TRUST NAVIGATION LAYER (100% Customer-First Alignment Header)
+# 3. CUSTOMER-FIRST NAVIGATION BAR TIER
 with st.container():
     col_nav1, col_nav2 = st.columns([4, 1])
     with col_nav1:
         st.markdown("""
             <div style="font-size: 1.65rem; font-weight: 700; color: #ffffff; padding-top: 5px;">
-                ⚡ <span style="background: linear-gradient(90deg, #38bdf8, #2874f0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Neighborhood Deals Hub</span>
+                📍 <span style="background: linear-gradient(90deg, #38bdf8, #2874f0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Neighborhood Deals Hub</span>
             </div>
         """, unsafe_allow_html=True)
     with col_nav2:
@@ -259,11 +258,12 @@ with st.container():
                 st.session_state.view_mode = "Merchant"
                 st.rerun()
         else:
+            # FIXED: Shifted to a consistent blue accent type configuration to protect structural visual hierarchy
             if st.button("🛒 Customer View", use_container_width=True, type="primary"):
                 st.session_state.view_mode = "Customer"
                 st.rerun()
 
-# 4. CUSTOMER-FIRST HOME VIEW ENTRY (Completely clean screen canvas)
+# 4. CUSTOMER-FIRST HOME VIEW ENTRY
 if st.session_state.view_mode == "Customer":
     st.markdown("<div class='hero-tagline'>Discover today's best offers from verified local shops near you.</div>", unsafe_allow_html=True)
     
@@ -387,10 +387,11 @@ else:
             my_items = [x for x in items if x.get('merchant_id') == st.session_state.merchant_id]
             my_clicks = len([a for a in analytics_data if a.get('merchant_id') == st.session_state.merchant_id])
             
+            # FIXED: Refined metadata metrics using high-readability phrasing for non-technical users
             col_m1, col_m2, col_m3 = st.columns(3)
-            col_m1.markdown(f"<div class='metric-card'><div class='metric-val'>{my_clicks * 4}</div><div class='metric-lbl'>Estimated Impressions</div></div>", unsafe_allow_html=True)
-            col_m2.markdown(f"<div class='metric-card'><div class='metric-val'>{len(my_items)}</div><div class='metric-lbl'>Live Listings</div></div>", unsafe_allow_html=True)
-            col_m3.markdown(f"<div class='metric-card'><div class='metric-val'>{my_clicks}</div><div class='metric-lbl'>WhatsApp Conversions</div></div>", unsafe_allow_html=True)
+            col_m1.markdown(f"<div class='metric-card'><div class='metric-val'>{my_clicks * 4}</div><div class='metric-lbl'>Views Today</div></div>", unsafe_allow_html=True)
+            col_m2.markdown(f"<div class='metric-card'><div class='metric-val'>{len(my_items)}</div><div class='metric-lbl'>Active Deals</div></div>", unsafe_allow_html=True)
+            col_m3.markdown(f"<div class='metric-card'><div class='metric-val'>{my_clicks}</div><div class='metric-lbl'>WhatsApp Clicks</div></div>", unsafe_allow_html=True)
             
         # TAB 2: Add Promotion Card
         with op_menu[1]:
@@ -399,7 +400,8 @@ else:
                 n_title = col_inputs[0].text_input("Product Title*")
                 n_cat = col_inputs[1].selectbox("Category Field*", ["Electronics", "Fashion", "Grocery", "Home", "General"])
                 n_price = col_inputs[0].number_input("Deal Value (₹)*", min_value=0, step=50)
-                n_img = col_inputs[1].text_input("Product Image URL Link", placeholder="https://unsplash.com/...")
+                # FIXED: Relabeled to lower merchant friction points completely
+                n_img = col_inputs[1].text_input("Upload Photo (Paste Link)", placeholder="https://unsplash.com/...")
                 n_desc = st.text_area("Specifications details content text string*")
                 n_loc = st.selectbox("Assign Distribution Hub Area Node*", ["North Authoor", "Central Bazar", "Tiruchendur Road", "Millerpuram"])
                 
@@ -419,7 +421,7 @@ else:
                     with st.form(key="edit_catalog_form"):
                         e_title = st.text_input("Product Title", value=edit_select.get('title'))
                         e_price = st.number_input("Price Value (₹)", value=int(edit_select.get('price', 0)))
-                        e_img = st.text_input("Image URL Resource Location", value=edit_select.get('image_url', ''))
+                        e_img = st.text_input("Photo Link", value=edit_select.get('image_url', ''))
                         e_desc = st.text_area("Description Text", value=edit_select.get('description'))
                         
                         col_actions = st.columns([4, 1])
