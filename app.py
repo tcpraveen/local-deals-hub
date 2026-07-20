@@ -6,32 +6,22 @@ import streamlit as st
 from supabase import create_client, Client
 import pandas as pd
 
-# 1. Page Configuration & Dark Canvas Setup
+# 1. Page Setup & Universal Dark Mode Styling
 st.set_page_config(page_title="Neighborhood Deals Hub", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
     <style>
-    /* Global Dark Canvas */
+    /* Dark Theme Setup */
     .stApp {
         background-color: #0f172a !important;
     }
     
-    /* Hide Streamlit sidebar completely */
+    /* Hide default sidebar drawer */
     section[data-testid="stSidebar"] {
         display: none !important;
     }
     
-    /* Sleek Top Navigation Header Bar */
-    .top-nav {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 0;
-        margin-bottom: 20px;
-        border-bottom: 1px solid #1e293b;
-    }
-    
-    /* SVG Logo Box */
+    /* Brand Logo & Header Navigation */
     .brand-logo-box {
         display: flex;
         align-items: center;
@@ -48,7 +38,6 @@ st.markdown("""
         box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
     }
     
-    /* Subtitle Tagline */
     .hero-tagline {
         color: #94a3b8;
         font-size: 1.05rem;
@@ -57,10 +46,10 @@ st.markdown("""
         font-weight: 400;
     }
 
-    /* Trust Badge Tier */
+    /* Social Proof Trust Chips */
     .trust-badge-row {
         display: flex;
-        gap: 24px;
+        gap: 20px;
         margin-bottom: 25px;
         flex-wrap: wrap;
     }
@@ -76,7 +65,7 @@ st.markdown("""
         border: 1px solid #334155;
     }
     
-    /* Product Card Architecture with Hover Micro-Interactions */
+    /* Product Card with 16:9 Aspect Ratio Focus */
     .product-card-frame {
         background-color: #1e293b;
         border-radius: 12px;
@@ -85,7 +74,7 @@ st.markdown("""
         transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease;
         display: flex;
         flex-direction: column;
-        height: 460px; 
+        height: 480px; 
         border: 1px solid #334155;
         overflow: hidden;
     }
@@ -95,17 +84,19 @@ st.markdown("""
         border-color: #38bdf8;
     }
     
-    /* Image Section: rounded corners and object-fit cover */
+    /* 16:9 Image Box */
     .img-container {
         width: 100%;
-        height: 250px; 
+        aspect-ratio: 16 / 9; 
+        height: 220px;
         overflow: hidden;
         background-color: #0f172a;
         display: flex;
         align-items: center;
         justify-content: center;
         border-radius: 8px;
-        margin-bottom: 14px;
+        margin-bottom: 12px;
+        position: relative;
     }
     .img-container img {
         width: 100%;
@@ -115,14 +106,14 @@ st.markdown("""
         transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .product-card-frame:hover .img-container img {
-        transform: scale(1.05); /* 5% Image Zoom Effect */
+        transform: scale(1.05);
     }
     .placeholder-icon { 
-        font-size: 5rem; 
+        font-size: 4.5rem; 
         color: #475569;
     }
     
-    /* Text Details Section */
+    /* Card Details Box */
     .card-details-box {
         display: flex;
         flex-direction: column;
@@ -131,7 +122,7 @@ st.markdown("""
     }
     
     .product-title {
-        font-size: 1.2rem;
+        font-size: 1.15rem;
         font-weight: 600;
         color: #f8fafc;
         margin-bottom: 4px;
@@ -143,31 +134,53 @@ st.markdown("""
     .merchant-name-label {
         font-size: 0.85rem;
         color: #94a3b8;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
     
     .product-price {
-        font-size: 1.45rem;
+        font-size: 1.4rem;
         font-weight: 700;
         color: #38bdf8;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
     
-    /* Metadata Rows */
+    /* Metadata Rows & Color-Coded Status Pills */
     .ux-metadata-row {
         display: flex;
         align-items: center;
-        gap: 10px;
-        font-size: 0.8rem;
+        gap: 8px;
+        font-size: 0.78rem;
         color: #cbd5e1;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
     }
     .meta-item {
         background-color: #0f172a;
-        padding: 4px 8px;
+        padding: 3px 8px;
+        border-radius: 4px;
+    }
+    .status-badge-new {
+        background-color: #14532d;
+        color: #4ade80;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 4px;
+    }
+    .status-badge-limited {
+        background-color: #7f1d1d;
+        color: #fca5a5;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 4px;
+    }
+    .status-badge-ending {
+        background-color: #7c2d12;
+        color: #fdba74;
+        font-weight: 600;
+        padding: 3px 8px;
         border-radius: 4px;
     }
     .rating-badge {
@@ -177,10 +190,10 @@ st.markdown("""
     }
     
     .product-desc {
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         color: #94a3b8;
-        line-height: 1.4;
-        height: 38px;
+        line-height: 1.35;
+        height: 36px;
         overflow: hidden;
         text-overflow: ellipsis;
         display: -webkit-box;
@@ -189,7 +202,7 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* Core Input Polish */
+    /* Custom Form & Metric Overrides */
     div[data-testid="stWidgetLabel"] p {
         color: #f8fafc !important;
         font-weight: 500 !important;
@@ -213,10 +226,19 @@ st.markdown("""
     .metric-lbl { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; margin-top: 4px; }
     .metric-sub { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
     .metric-trend { font-size: 0.75rem; color: #4ade80; font-weight: 600; margin-top: 4px; }
+
+    .empty-state-box {
+        background-color: #1e293b;
+        border: 1px dashed #475569;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        margin: 20px 0;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Session State
+# Session State Setup
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "merchant_id" not in st.session_state:
@@ -228,7 +250,7 @@ if "current_category" not in st.session_state:
 if "view_mode" not in st.session_state:
     st.session_state.view_mode = "Customer"
 
-# 2. Supabase Connection Setup
+# 2. Supabase Cloud Connection
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
@@ -238,7 +260,7 @@ else:
     st.error("Missing Supabase configuration keys.")
     st.stop()
 
-# Formatting Helpers
+# Helper Functions
 def format_indian_currency(amount):
     try:
         val = int(float(amount))
@@ -272,7 +294,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
     return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))), 1)
 
-# Fetch Records
+# Fetch Database Records
 try:
     items_response = supabase.table("items").select("*").order("created_at", desc=True).execute()
     items = items_response.data if items_response.data else []
@@ -287,7 +309,30 @@ except Exception:
 
 user_lat, user_lon = 8.8050, 78.1519
 
-# 3. NAVIGATION LAYER (Action-Oriented Merchant Login Label)
+# 3. Interactive Modal Dialog Sheet View (Full Item Specifications)
+@st.dialog("📦 Deal Specifications & Store Details")
+def show_deal_modal(item, shop_info):
+    img_src = item.get('image_url')
+    if img_src and str(img_src).strip().startswith("http"):
+        st.image(img_src.strip(), use_column_width=True)
+    st.markdown(f"### {item.get('title')}")
+    st.markdown(f"## {format_indian_currency(item.get('price', 0))}")
+    
+    col_d1, col_d2 = st.columns(2)
+    col_d1.markdown(f"**Store:** {shop_info.get('shop_name', 'Local Shop')}")
+    col_d1.markdown(f"**Category:** {item.get('category', 'General')}")
+    col_d2.markdown(f"**Rating:** ⭐ {shop_info.get('rating', 4.5)}")
+    col_d2.markdown(f"**Opening Hours:** 9:00 AM - 9:30 PM")
+    
+    st.markdown("---")
+    st.markdown("**Description & Specifications:**")
+    st.write(item.get('description'))
+    
+    phone = shop_info.get('phone_number', '918072130833')
+    wa_url = f"https://wa.me/{str(phone).strip()}?text=Hi,%20I'm%20interested%20in%20{item.get('title')}"
+    st.link_button("💬 Chat on WhatsApp with Merchant", wa_url, use_container_width=True, type="primary")
+
+# 4. HEADER NAVIGATION
 with st.container():
     col_nav1, col_nav2 = st.columns([4, 1])
     with col_nav1:
@@ -306,7 +351,6 @@ with st.container():
         """, unsafe_allow_html=True)
     with col_nav2:
         if st.session_state.view_mode == "Customer":
-            # Action-Oriented Merchant Login Label
             if st.button("🏢 Merchant Login", use_container_width=True, type="secondary"):
                 st.session_state.view_mode = "Merchant"
                 st.rerun()
@@ -315,11 +359,10 @@ with st.container():
                 st.session_state.view_mode = "Customer"
                 st.rerun()
 
-# 4. CUSTOMER INTERFACE VIEW
+# 5. CUSTOMER VIEW PIPELINE
 if st.session_state.view_mode == "Customer":
     st.markdown("<div class='hero-tagline'>Find the best deal from a nearby local shop in under 30 seconds.</div>", unsafe_allow_html=True)
     
-    # Social Proof Metrics Banner
     st.markdown("""
         <div class="trust-badge-row">
             <div class="trust-chip">🏪 <b>250+</b> Local Shops</div>
@@ -328,7 +371,6 @@ if st.session_state.view_mode == "Customer":
         </div>
     """, unsafe_allow_html=True)
     
-    # Search & Categories
     search_query = st.text_input("Search Engine Console Field", placeholder="🔍 Search products, brands, local stores...", label_visibility="collapsed")
     
     categories = ["All", "Electronics", "Fashion", "Grocery", "Home"]
@@ -357,7 +399,7 @@ if st.session_state.view_mode == "Customer":
             if i.get('latitude') and i.get('longitude'):
                 map_data_list.append({"latitude": float(i.get('latitude')), "longitude": float(i.get('longitude')), "title": i.get('title')})
 
-    # Integrated Map Container
+    # Shrunk Height Map Container
     if map_data_list:
         st.components.v1.html(
             f"""
@@ -369,7 +411,7 @@ if st.session_state.view_mode == "Customer":
         )
         st.markdown("<br>", unsafe_allow_html=True)
         
-    # The Core 65-35 Wider Grid (3 Columns)
+    # The Core 16:9 Grid Layout
     if filtered_items:
         st.markdown("<h3 style='color:#ffffff; font-size:1.3rem; font-weight:600; margin-bottom:15px;'>🔥 Today's Best Deals</h3>", unsafe_allow_html=True)
         cols = st.columns(3)
@@ -378,6 +420,14 @@ if st.session_state.view_mode == "Customer":
                 img_src = item.get('image_url')
                 img_html = f'<img src="{img_src.strip()}">' if (img_src and str(img_src).strip().startswith("http")) else '<div class="placeholder-icon">📺</div>'
                 verified_badge = ' <span style="color:#2874f0; font-size:0.85rem;">💎</span>' if item.get('is_verified') else ''
+                
+                # Dynamic Status Badges Logic
+                if idx % 3 == 0:
+                    status_badge = '<span class="status-badge-new">🟢 New</span>'
+                elif idx % 3 == 1:
+                    status_badge = '<span class="status-badge-ending">🟠 Ending Soon</span>'
+                else:
+                    status_badge = '<span class="status-badge-limited">🔴 Limited Stock</span>'
                 
                 st.markdown(f"""
                     <div class="product-card-frame">
@@ -392,9 +442,9 @@ if st.session_state.view_mode == "Customer":
                             <div>
                                 <div class="product-price">{format_indian_currency(item.get('price', 0))}</div>
                                 <div class="ux-metadata-row">
+                                    {status_badge}
                                     <span class="meta-item rating-badge">⭐ {item.get('shop_rating')}</span>
-                                    <span class="meta-item">📍 {item.get('distance_km')} km near me</span>
-                                    <span class="meta-item">⏱️ {get_relative_time(item.get('created_at', ''))}</span>
+                                    <span class="meta-item">📍 {item.get('distance_km')} km</span>
                                 </div>
                                 <div class="product-desc">{item.get('description')}</div>
                             </div>
@@ -402,16 +452,30 @@ if st.session_state.view_mode == "Customer":
                     </div>
                 """, unsafe_allow_html=True)
                 
+                col_btn1, col_btn2 = st.columns([1, 1])
+                if col_btn1.button("🔍 View Details", key=f"details_{item.get('id')}", use_container_width=True):
+                    show_deal_modal(item, merchants_dict.get(item.get('merchant_id'), {}))
+                    
                 phone = merchants_dict.get(item.get('merchant_id'), {}).get('phone_number', '918072130833')
                 def track_lead(m_id, item_id):
                     try: supabase.table("analytics").insert({"merchant_id": m_id, "item_id": item_id}).execute()
                     except: pass
                     
                 wa_url = f"https://wa.me/{str(phone).strip()}?text=Hi,%20I'm%20interested%20in%20{item.get('title')}"
-                st.link_button("💬 Chat on WhatsApp", wa_url, use_container_width=True, on_click=track_lead, args=(item.get('merchant_id'), item.get('id')))
+                col_btn2.link_button("💬 WhatsApp", wa_url, use_container_width=True, on_click=track_lead, args=(item.get('merchant_id'), item.get('id')))
                 st.markdown("<br>", unsafe_allow_html=True)
+    else:
+        # Structured Empty State Frame
+        st.markdown("""
+            <div class="empty-state-box">
+                <div style="font-size: 3rem; margin-bottom: 10px;">📦</div>
+                <h3 style="color:#ffffff; margin-bottom: 5px;">No deals available in this area yet</h3>
+                <p style="color:#94a3b8; font-size: 0.95rem;">Check back later or search for another term/category.</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+# 6. MERCHANT CONTROL PANEL
 else:
-    # MERCHANT CONTROL PANEL
     if not st.session_state.logged_in:
         st.markdown("<h2 style='color:#ffffff; font-weight:600;'>🏢 Merchant Login</h2>", unsafe_allow_html=True)
         col_l1, col_l2 = st.columns([1, 2])
@@ -424,13 +488,14 @@ else:
                     st.session_state.logged_in = True
                     st.session_state.merchant_id = input_shop_id.strip()
                     st.session_state.merchant_name = merchants_dict[input_shop_id.strip()].get("shop_name")
+                    st.toast("✅ Logged in successfully!", icon="🎉")
                     st.rerun()
-                else: st.error("Access credentials invalid.")
+                else: 
+                    st.error("Access credentials invalid.")
     else:
         m_info = merchants_dict.get(st.session_state.merchant_id, {})
         m_logo = m_info.get("logo_url") if m_info.get("logo_url") else "https://cdn-icons-png.flaticon.com/512/606/606547.png"
         
-        # Friendly Personalized Greeting Header
         st.markdown(f"""
             <div style="margin-bottom: 20px;">
                 <h2 style="color:#ffffff; font-weight:700; margin-bottom:4px;">Welcome back, {st.session_state.merchant_name} 👋</h2>
@@ -438,7 +503,6 @@ else:
             </div>
         """, unsafe_allow_html=True)
         
-        # Verified Store Badge
         st.markdown(f"""
             <div style="display: flex; align-items: center; gap: 14px; background-color: #1e293b; padding: 14px; border-radius: 10px; border:1px solid #334155; margin-bottom: 25px; width: fit-content;">
                 <img src="{m_logo}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid #38bdf8;">
@@ -458,7 +522,6 @@ else:
             my_items = [x for x in items if x.get('merchant_id') == st.session_state.merchant_id]
             my_clicks = len([a for a in analytics_data if a.get('merchant_id') == st.session_state.merchant_id])
             
-            # Smart Zero-State Analytics Handling
             views_val = my_clicks * 4
             views_sub = "<div class='metric-trend'>↑ +12% vs yesterday</div>" if views_val > 0 else "<div class='metric-sub'>No visits today</div>"
             clicks_sub = "<div class='metric-trend'>↑ +8% conversion rate</div>" if my_clicks > 0 else "<div class='metric-sub'>Updated 5 mins ago</div>"
@@ -502,7 +565,7 @@ else:
                     if n_title.strip() and n_desc.strip() and n_price > 0:
                         coords = {"North Authoor": (8.8050, 78.1519), "Central Bazar": (8.8100, 78.1450), "Tiruchendur Road": (8.7950, 78.1600), "Millerpuram": (8.8020, 78.1320)}.get(n_loc, (8.8050, 78.1519))
                         supabase.table("items").insert({"title": n_title.strip(), "description": n_desc.strip(), "category": n_cat, "price": n_price, "location": n_loc, "image_url": n_img.strip(), "latitude": coords[0], "longitude": coords[1], "merchant_id": st.session_state.merchant_id}).execute()
-                        st.success("Deal published live inside local customer feeds!")
+                        st.toast("✅ Deal published successfully!", icon="🚀")
                         st.rerun()
 
         with op_menu[2]:
@@ -519,13 +582,13 @@ else:
                         col_actions = st.columns([4, 1])
                         if col_actions[0].form_submit_button("💾 Save Changes", use_container_width=True):
                             supabase.table("items").update({"title": e_title.strip(), "price": e_price, "image_url": e_img.strip(), "description": e_desc.strip()}).eq("id", edit_select.get('id')).execute()
-                            st.success("Changes saved successfully!")
+                            st.toast("✏️ Changes saved!", icon="💾")
                             st.rerun()
                         if col_actions[1].form_submit_button("🗑️ Remove Deal", use_container_width=True):
                             supabase.table("items").delete().eq("id", edit_select.get('id')).execute()
+                            st.toast("🗑️ Deal removed successfully!", icon="🗑️")
                             st.rerun()
             else:
-                # Clear Empty State CTA
                 st.info("No active deals yet. Publish your first deal to reach nearby customers.")
         
         st.markdown("<br><br>", unsafe_allow_html=True)
@@ -533,4 +596,5 @@ else:
             st.session_state.logged_in = False
             st.session_state.merchant_id = None
             st.session_state.merchant_name = None
+            st.toast("Logged out cleanly.", icon="🔒")
             st.rerun()
