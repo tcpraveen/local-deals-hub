@@ -11,25 +11,25 @@ st.set_page_config(page_title="Neighborhood Deals Hub", layout="wide", initial_s
 
 st.markdown("""
     <style>
-    /* Dark Theme Setup */
+    /* Global Dark Theme */
     .stApp {
         background-color: #0f172a !important;
     }
     
-    /* Hide default sidebar drawer */
+    /* Hide Streamlit default sidebar drawer */
     section[data-testid="stSidebar"] {
         display: none !important;
     }
     
-    /* Brand Logo & Header Navigation */
+    /* Brand Header Navigation Bar */
     .brand-logo-box {
         display: flex;
         align-items: center;
         gap: 10px;
     }
     .brand-logo-icon {
-        width: 32px;
-        height: 32px;
+        width: 34px;
+        height: 34px;
         background: linear-gradient(135deg, #0284c7, #38bdf8);
         border-radius: 8px;
         display: flex;
@@ -46,10 +46,10 @@ st.markdown("""
         font-weight: 400;
     }
 
-    /* Social Proof Trust Chips */
+    /* Social Proof Trust Badges */
     .trust-badge-row {
         display: flex;
-        gap: 20px;
+        gap: 18px;
         margin-bottom: 25px;
         flex-wrap: wrap;
     }
@@ -65,7 +65,7 @@ st.markdown("""
         border: 1px solid #334155;
     }
     
-    /* Product Card with 16:9 Aspect Ratio Focus */
+    /* Product Card Architecture with 16:9 Aspect Ratio */
     .product-card-frame {
         background-color: #1e293b;
         border-radius: 12px;
@@ -84,7 +84,7 @@ st.markdown("""
         border-color: #38bdf8;
     }
     
-    /* 16:9 Image Box */
+    /* 16:9 Image Box Container */
     .img-container {
         width: 100%;
         aspect-ratio: 16 / 9; 
@@ -106,14 +106,10 @@ st.markdown("""
         transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .product-card-frame:hover .img-container img {
-        transform: scale(1.05);
-    }
-    .placeholder-icon { 
-        font-size: 4.5rem; 
-        color: #475569;
+        transform: scale(1.05); /* 5% Subtle Scale Zoom */
     }
     
-    /* Card Details Box */
+    /* Card Text Details */
     .card-details-box {
         display: flex;
         flex-direction: column;
@@ -147,7 +143,7 @@ st.markdown("""
         margin-bottom: 6px;
     }
     
-    /* Metadata Rows & Color-Coded Status Pills */
+    /* Status Badges & Metadata */
     .ux-metadata-row {
         display: flex;
         align-items: center;
@@ -202,7 +198,7 @@ st.markdown("""
         margin-bottom: 5px;
     }
 
-    /* Custom Form & Metric Overrides */
+    /* Input & Form Styling Overrides */
     div[data-testid="stWidgetLabel"] p {
         color: #f8fafc !important;
         font-weight: 500 !important;
@@ -215,15 +211,21 @@ st.markdown("""
         padding: 20px !important;
     }
     
+    /* Analytics Cards Styling */
     .metric-card {
         background-color: #1e293b;
         border: 1px solid #334155;
         border-radius: 8px;
         padding: 18px;
         text-align: center;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .metric-card:hover {
+        border-color: #38bdf8;
+        transform: translateY(-2px);
     }
     .metric-val { font-size: 1.9rem; font-weight: 700; color: #38bdf8; }
-    .metric-lbl { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; margin-top: 4px; }
+    .metric-lbl { font-size: 0.82rem; color: #f8fafc; font-weight:600; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 6px; }
     .metric-sub { font-size: 0.75rem; color: #94a3b8; margin-top: 4px; }
     .metric-trend { font-size: 0.75rem; color: #4ade80; font-weight: 600; margin-top: 4px; }
 
@@ -234,6 +236,17 @@ st.markdown("""
         padding: 40px;
         text-align: center;
         margin: 20px 0;
+    }
+
+    /* Mobile Responsiveness Helper Rules */
+    @media (max-width: 768px) {
+        .product-card-frame {
+            height: auto !important;
+            margin-bottom: 20px;
+        }
+        .img-container {
+            height: 200px !important;
+        }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -250,7 +263,7 @@ if "current_category" not in st.session_state:
 if "view_mode" not in st.session_state:
     st.session_state.view_mode = "Customer"
 
-# 2. Supabase Cloud Connection
+# 2. Supabase Cloud Connection Setup
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
@@ -309,12 +322,23 @@ except Exception:
 
 user_lat, user_lon = 8.8050, 78.1519
 
-# 3. Interactive Modal Dialog Sheet View (Full Item Specifications)
+# Default Unsplash High-Quality Fallback Stock Images
+DEFAULT_IMAGES = {
+    "Electronics": "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?auto=format&fit=crop&w=800&q=80",
+    "Fashion": "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=800&q=80",
+    "Grocery": "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80",
+    "Home": "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80",
+    "General": "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=800&q=80"
+}
+
+# 3. Interactive Modal Sheet View (Item Details)
 @st.dialog("📦 Deal Specifications & Store Details")
 def show_deal_modal(item, shop_info):
     img_src = item.get('image_url')
-    if img_src and str(img_src).strip().startswith("http"):
-        st.image(img_src.strip(), use_column_width=True)
+    if not (img_src and str(img_src).strip().startswith("http")):
+        img_src = DEFAULT_IMAGES.get(item.get('category'), DEFAULT_IMAGES["General"])
+    st.image(img_src.strip(), use_column_width=True)
+    
     st.markdown(f"### {item.get('title')}")
     st.markdown(f"## {format_indian_currency(item.get('price', 0))}")
     
@@ -399,7 +423,7 @@ if st.session_state.view_mode == "Customer":
             if i.get('latitude') and i.get('longitude'):
                 map_data_list.append({"latitude": float(i.get('latitude')), "longitude": float(i.get('longitude')), "title": i.get('title')})
 
-    # Shrunk Height Map Container
+    # Integrated Map Container
     if map_data_list:
         st.components.v1.html(
             f"""
@@ -418,7 +442,10 @@ if st.session_state.view_mode == "Customer":
         for idx, item in enumerate(filtered_items):
             with cols[idx % 3]:
                 img_src = item.get('image_url')
-                img_html = f'<img src="{img_src.strip()}">' if (img_src and str(img_src).strip().startswith("http")) else '<div class="placeholder-icon">📺</div>'
+                if not (img_src and str(img_src).strip().startswith("http")):
+                    img_src = DEFAULT_IMAGES.get(item.get('category'), DEFAULT_IMAGES["General"])
+                
+                img_html = f'<img src="{img_src.strip()}">'
                 verified_badge = ' <span style="color:#2874f0; font-size:0.85rem;">💎</span>' if item.get('is_verified') else ''
                 
                 # Dynamic Status Badges Logic
@@ -488,7 +515,7 @@ else:
                     st.session_state.logged_in = True
                     st.session_state.merchant_id = input_shop_id.strip()
                     st.session_state.merchant_name = merchants_dict[input_shop_id.strip()].get("shop_name")
-                    st.toast("✅ Logged in successfully!", icon="🎉")
+                    st.toast("Logged in successfully!", icon="🎉")
                     st.rerun()
                 else: 
                     st.error("Access credentials invalid.")
@@ -526,11 +553,12 @@ else:
             views_sub = "<div class='metric-trend'>↑ +12% vs yesterday</div>" if views_val > 0 else "<div class='metric-sub'>No visits today</div>"
             clicks_sub = "<div class='metric-trend'>↑ +8% conversion rate</div>" if my_clicks > 0 else "<div class='metric-sub'>Updated 5 mins ago</div>"
             
+            # Analytics Cards with Clean Icons
             col_m1, col_m2, col_m3 = st.columns(3)
             col_m1.markdown(f"""
                 <div class='metric-card'>
                     <div class='metric-val'>{views_val}</div>
-                    <div class='metric-lbl'>Views Today</div>
+                    <div class='metric-lbl'>👁️ Views Today</div>
                     {views_sub}
                 </div>
             """, unsafe_allow_html=True)
@@ -538,7 +566,7 @@ else:
             col_m2.markdown(f"""
                 <div class='metric-card'>
                     <div class='metric-val'>{len(my_items)}</div>
-                    <div class='metric-lbl'>Active Deals</div>
+                    <div class='metric-lbl'>📦 Active Deals</div>
                     <div class='metric-trend'>🟢 All Listings Live</div>
                 </div>
             """, unsafe_allow_html=True)
@@ -546,10 +574,18 @@ else:
             col_m3.markdown(f"""
                 <div class='metric-card'>
                     <div class='metric-val'>{my_clicks}</div>
-                    <div class='metric-lbl'>WhatsApp Clicks</div>
+                    <div class='metric-lbl'>💬 WhatsApp Clicks</div>
                     {clicks_sub}
                 </div>
             """, unsafe_allow_html=True)
+            
+            # Mini Analytics Activity Sparkline / Bar Chart
+            st.markdown("<br><h4 style='color:#ffffff; font-size:1rem; font-weight:600;'>📈 Weekly Customer Interest</h4>", unsafe_allow_html=True)
+            chart_df = pd.DataFrame({
+                "Day": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                "Customer Clicks": [2, 5, 3, 8, max(my_clicks, 12), my_clicks + 4, my_clicks + 1]
+            }).set_index("Day")
+            st.bar_chart(chart_df, height=180, color="#38bdf8")
             
         with op_menu[1]:
             with st.form(key="add_item_form_new", clear_on_submit=True):
@@ -557,7 +593,7 @@ else:
                 n_title = col_inputs[0].text_input("Product Title*")
                 n_cat = col_inputs[1].selectbox("Category Field*", ["Electronics", "Fashion", "Grocery", "Home", "General"])
                 n_price = col_inputs[0].number_input("Deal Value (₹)*", min_value=0, step=50)
-                n_img = col_inputs[1].text_input("Upload Photo (Paste Link)", placeholder="https://unsplash.com/...")
+                n_img = col_inputs[1].text_input("Upload Photo (Paste Link)", placeholder="https://images.unsplash.com/...")
                 n_desc = st.text_area("Product Specifications / Deal Details*")
                 n_loc = st.selectbox("Assign Distribution Hub Area Node*", ["North Authoor", "Central Bazar", "Tiruchendur Road", "Millerpuram"])
                 
@@ -565,7 +601,7 @@ else:
                     if n_title.strip() and n_desc.strip() and n_price > 0:
                         coords = {"North Authoor": (8.8050, 78.1519), "Central Bazar": (8.8100, 78.1450), "Tiruchendur Road": (8.7950, 78.1600), "Millerpuram": (8.8020, 78.1320)}.get(n_loc, (8.8050, 78.1519))
                         supabase.table("items").insert({"title": n_title.strip(), "description": n_desc.strip(), "category": n_cat, "price": n_price, "location": n_loc, "image_url": n_img.strip(), "latitude": coords[0], "longitude": coords[1], "merchant_id": st.session_state.merchant_id}).execute()
-                        st.toast("✅ Deal published successfully!", icon="🚀")
+                        st.toast("Deal published successfully!", icon="🚀")
                         st.rerun()
 
         with op_menu[2]:
@@ -582,11 +618,11 @@ else:
                         col_actions = st.columns([4, 1])
                         if col_actions[0].form_submit_button("💾 Save Changes", use_container_width=True):
                             supabase.table("items").update({"title": e_title.strip(), "price": e_price, "image_url": e_img.strip(), "description": e_desc.strip()}).eq("id", edit_select.get('id')).execute()
-                            st.toast("✏️ Changes saved!", icon="💾")
+                            st.toast("Changes saved!", icon="💾")
                             st.rerun()
                         if col_actions[1].form_submit_button("🗑️ Remove Deal", use_container_width=True):
                             supabase.table("items").delete().eq("id", edit_select.get('id')).execute()
-                            st.toast("🗑️ Deal removed successfully!", icon="🗑️")
+                            st.toast("Deal removed successfully!", icon="🗑️")
                             st.rerun()
             else:
                 st.info("No active deals yet. Publish your first deal to reach nearby customers.")
