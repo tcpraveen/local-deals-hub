@@ -1,2 +1,5 @@
+streamlit
 supabase
-streamlit-geolocation
+pandas
+folium
+streamlit-folium
