@@ -15,7 +15,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for modern UI and smooth cards
+# Custom CSS for modern UI and clean card layout
 st.markdown("""
 <style>
     .main-header { font-size: 2.2rem; font-weight: 700; color: #1E293B; margin-bottom: 0.2rem; }
@@ -36,30 +36,41 @@ st.markdown("""
         font-size: 0.8rem;
         font-weight: 600;
     }
-    .stButton>button { width: 100%; border-radius: 8px; font-weight: 600; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. SUPABASE DATABASE INITIALIZATION
+# 2. SAFE SUPABASE & SECRETS INITIALIZATION
 # ==========================================
-SUPABASE_URL = st.secrets.get("SUPABASE_URL", os.environ.get("SUPABASE_URL", ""))
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", os.environ.get("SUPABASE_KEY", ""))
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+
+# Safely check Streamlit secrets without throwing StreamlitSecretNotFoundError
+try:
+    if hasattr(st, "secrets"):
+        if "SUPABASE_URL" in st.secrets:
+            SUPABASE_URL = st.secrets["SUPABASE_URL"]
+        if "SUPABASE_KEY" in st.secrets:
+            SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+except Exception:
+    pass
 
 @st.cache_resource
 def init_supabase() -> Client:
     if not SUPABASE_URL or not SUPABASE_KEY:
-        st.warning("⚠️ Supabase credentials missing. Showing fallback sample data.")
         return None
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+    try:
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception:
+        return None
 
 supabase = init_supabase()
 
 # ==========================================
-# 3. HELPER DATA FUNCTIONS
+# 3. HELPER & FALLBACK DATA FUNCTIONS
 # ==========================================
 def get_sample_deals():
-    """Fallback data if Supabase isn't connected yet"""
+    """Fallback sample data to keep site running smoothly when DB is disconnected"""
     return [
         {
             "id": 1,
@@ -95,8 +106,8 @@ def fetch_deals():
             res = supabase.table("deals").select("*").order("created_at", desc=True).execute()
             if res.data:
                 return res.data
-        except Exception as e:
-            st.error(f"Error fetching deals from database: {e}")
+        except Exception:
+            pass
     return get_sample_deals()
 
 # ==========================================
@@ -126,18 +137,18 @@ if page == "Explore Nearby Deals":
     filtered_deals = []
     for d in deals:
         matches_search = search_query.lower() in d['title'].lower() or search_query.lower() in d['shop_name'].lower()
-        matches_cat = (selected_cat == "All") or (d['category'] == selected_cat)
+        matches_cat = (selected_cat == "All") or (d.get('category') == selected_cat)
         if matches_search and matches_cat:
             filtered_deals.append(d)
 
     # MAP SECTION (FOLIUM)
     st.markdown("### 🗺️ Live Neighborhood Map")
     
-    # Center map on user location (Default center)
+    # Default Center Coordinates
     user_lat, user_lon = 8.8050, 78.1519
     m = folium.Map(location=[user_lat, user_lon], zoom_start=14)
 
-    # User Marker (Blue Pin)
+    # Blue Marker: User Location
     folium.Marker(
         location=[user_lat, user_lon],
         popup="<b>📍 You Are Here</b>",
@@ -145,7 +156,7 @@ if page == "Explore Nearby Deals":
         icon=folium.Icon(color="blue", icon="user", prefix="fa")
     ).add_to(m)
 
-    # Shop Markers (Red Pins)
+    # Red Markers: Nearby Shops
     for deal in filtered_deals:
         s_lat = deal.get("lat") or deal.get("latitude")
         s_lon = deal.get("lon") or deal.get("longitude")
@@ -182,11 +193,11 @@ if page == "Explore Nearby Deals":
             with cols[idx % 3]:
                 st.markdown("<div class='deal-card'>", unsafe_allow_html=True)
                 
-                # Image
+                # Deal Image
                 img_url = deal.get("image") or "https://via.placeholder.com/400x250?text=Local+Shop+Deal"
                 st.image(img_url, use_container_width=True)
                 
-                # Content
+                # Deal Content
                 if deal.get("is_clearance"):
                     st.markdown("<span class='badge-clearance'>🔥 Aadi / Off-Season Clearance</span>", unsafe_allow_html=True)
                 
@@ -198,7 +209,7 @@ if page == "Explore Nearby Deals":
                 deal_price = deal.get("deal_price", 0)
                 st.markdown(f"💰 ~~₹{orig_price:,}~~ **₹{deal_price:,}**")
 
-                # WhatsApp Action Button
+                # Direct WhatsApp Link Button
                 wa_num = str(deal.get("whatsapp", ""))
                 msg = f"Hi {deal['shop_name']}, I saw your deal '{deal['title']}' on Neighborhood Deals Hub. Is this available today?"
                 wa_url = f"https://wa.me/{wa_num}?text={msg.replace(' ', '%20')}"
@@ -269,4 +280,4 @@ elif page == "Merchant Portal":
                     except Exception as e:
                         st.error(f"Failed to post deal to database: {e}")
                 else:
-                    st.success("🎉 Deal submitted locally! (Connect Supabase to persist database storage).")
+                    st.success("🎉 Deal submitted locally! (Connect Supabase to store long-term).")
